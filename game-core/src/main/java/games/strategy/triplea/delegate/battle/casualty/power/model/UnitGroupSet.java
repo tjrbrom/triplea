@@ -123,9 +123,9 @@ public class UnitGroupSet {
     final int enemyStrengthBuff;
     final int enemyRollbuff;
 
-    return (unitGroup.getStrength() + bestStrengthBuff) //- enemyStrengthBuff)
-            * (unitGroup.getDiceRolls() + bestRollsBuff); // - enemyRollbuff)
-//        + (strengthSupportBeingProvided * rollSupportBeingProvided);
+    return (unitGroup.getStrength() + bestStrengthBuff) // - enemyStrengthBuff)
+        * (unitGroup.getDiceRolls() + bestRollsBuff); // - enemyRollbuff)
+    //        + (strengthSupportBeingProvided * rollSupportBeingProvided);
   }
 
   // TODO: add test case
