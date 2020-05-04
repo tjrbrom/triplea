@@ -65,6 +65,7 @@ import org.triplea.util.Tuple;
  */
 @Log
 public class TriggerAttachment extends AbstractTriggerAttachment {
+  public static final String ATTACHMENT_NAME = "TriggerAttachment";
   private static final long serialVersionUID = -3327739180569606093L;
   private static final Map<String, BiFunction<GamePlayer, String, DefaultAttachment>>
       playerPropertyChangeAttachmentNameToAttachmentGetter =

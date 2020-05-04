@@ -14,6 +14,7 @@ import games.strategy.engine.data.UnitType;
 import games.strategy.engine.data.changefactory.ChangeFactory;
 import games.strategy.triplea.attachments.TechAttachment;
 import games.strategy.triplea.delegate.HeavyBomberAdvance;
+import games.strategy.triplea.delegate.ImprovedArtillerySupportAdvance;
 import games.strategy.triplea.delegate.TechAdvance;
 import games.strategy.triplea.delegate.battle.UnitBattleComparator.CombatModifiers;
 import games.strategy.triplea.xml.TestMapGameData;
@@ -129,14 +130,14 @@ class CasualtyOrderOfLossesTestOnGlobal {
   private CasualtyOrderOfLosses.Parameters attackingWith(final Collection<Unit> units) {
     return CasualtyOrderOfLosses.Parameters.builder()
         .targetsToPickFrom(units)
+        .player(BRITISH)
+        .enemyUnits(List.of()) // << TODO: remove this parameter should not matter
         .combatModifiers(
-            CombatModifiers.builder()
+            UnitType.CombatModifiers.builder()
                 .defending(false)
                 .amphibious(false)
                 .territoryEffects(List.of())
                 .build())
-        .player(BRITISH)
-        .enemyUnits(List.of())
         .amphibiousLandAttackers(List.of())
         .battlesite(FRANCE)
         .costs(COST_MAP)
@@ -175,7 +176,7 @@ class CasualtyOrderOfLossesTestOnGlobal {
     assertThat(result, hasSize(4));
 
     // Note: It's a bug we take marine first, artillery can support the marine instead
-    // of infantry, would be better to kill infantry first as it is lower cost
+    // of infantry, would be better to kill infantry first
     assertThat(result.get(0).getType(), is(MARINE));
     assertThat(result.get(1).getType(), is(INFANTRY));
     assertThat(result.get(2).getType(), is(ARTILLERY));
@@ -196,23 +197,23 @@ class CasualtyOrderOfLossesTestOnGlobal {
     assertThat(result, hasSize(6));
     assertThat(result.get(0).getType(), is(INFANTRY));
     assertThat(result.get(1).getType(), is(INFANTRY));
-    assertThat(result.get(2).getType(), is(ARTILLERY));
-    assertThat(result.get(3).getType(), is(ARTILLERY));
-    assertThat(result.get(4).getType(), is(MARINE));
-    assertThat(result.get(5).getType(), is(MARINE));
+    assertThat(result.get(2).getType(), is(MARINE));
+    assertThat(result.get(3).getType(), is(MARINE));
+    assertThat(result.get(4).getType(), is(ARTILLERY));
+    assertThat(result.get(5).getType(), is(ARTILLERY));
   }
 
   private CasualtyOrderOfLosses.Parameters amphibAssault(final Collection<Unit> amphibUnits) {
     return CasualtyOrderOfLosses.Parameters.builder()
         .targetsToPickFrom(amphibUnits)
+        .player(BRITISH)
+        .enemyUnits(List.of()) // << TODO: remove this parameter should not matter
         .combatModifiers(
-            CombatModifiers.builder()
+            UnitType.CombatModifiers.builder()
                 .defending(false)
                 .amphibious(true)
                 .territoryEffects(List.of())
                 .build())
-        .player(BRITISH)
-        .enemyUnits(List.of())
         .amphibiousLandAttackers(amphibUnits)
         .battlesite(FRANCE)
         .costs(COST_MAP)
@@ -221,7 +222,7 @@ class CasualtyOrderOfLossesTestOnGlobal {
   }
 
   @Test
-  void amphibAssaultingMarinesWithEqualNumberOfArtillery() {
+  void marinesAndArtillery() {
     final Collection<Unit> attackingUnits = new ArrayList<>();
     attackingUnits.addAll(DataFactory.britishMarine(3));
     attackingUnits.addAll(DataFactory.britishArtillery(3));
@@ -230,12 +231,12 @@ class CasualtyOrderOfLossesTestOnGlobal {
         CasualtyOrderOfLosses.sortUnitsForCasualtiesWithSupport(amphibAssault(attackingUnits));
 
     assertThat(result, hasSize(6));
-    assertThat(result.get(0).getType(), is(ARTILLERY));
-    assertThat(result.get(1).getType(), is(ARTILLERY));
-    assertThat(result.get(2).getType(), is(ARTILLERY));
-    assertThat(result.get(3).getType(), is(MARINE));
-    assertThat(result.get(4).getType(), is(MARINE));
-    assertThat(result.get(5).getType(), is(MARINE));
+    assertThat(result.get(0).getType(), is(MARINE));
+    assertThat(result.get(1).getType(), is(MARINE));
+    assertThat(result.get(2).getType(), is(MARINE));
+    assertThat(result.get(3).getType(), is(ARTILLERY));
+    assertThat(result.get(4).getType(), is(ARTILLERY));
+    assertThat(result.get(5).getType(), is(ARTILLERY));
   }
 
   @Test
@@ -330,5 +331,25 @@ class CasualtyOrderOfLossesTestOnGlobal {
     assertThat(result, hasSize(2));
     assertThat(result.get(0).getType(), is(BOMBER));
     assertThat(result.get(1).getType(), is(BATTLESHIP));
+  }
+
+  @Test
+  void improvedArtillery() {
+    addTech(new ImprovedArtillerySupportAdvance(data));
+
+    final Collection<Unit> attackingUnits = new ArrayList<>();
+    attackingUnits.addAll(DataFactory.britishTank(1));
+    attackingUnits.addAll(DataFactory.britishArtillery(1));
+    attackingUnits.addAll(DataFactory.britishMarine(1));
+    attackingUnits.addAll(DataFactory.britishMarine(1));
+
+    final List<Unit> result =
+        CasualtyOrderOfLosses.sortUnitsForCasualtiesWithSupport(amphibAssault(attackingUnits));
+
+    assertThat(result, hasSize(4));
+    assertThat(result.get(0).getType(), is(MARINE)); // attack at 4
+    assertThat(result.get(1).getType(), is(MARINE)); // attack at 4
+    assertThat(result.get(2).getType(), is(ARTILLERY)); // attack at 2 (providing +1, + 1);
+    assertThat(result.get(3).getType(), is(TANK)); // attack at 3
   }
 }

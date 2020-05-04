@@ -40,6 +40,7 @@ import org.triplea.util.Tuple;
 
 /** Despite the misleading name, this attaches not to individual Units but to UnitTypes. */
 public class UnitAttachment extends DefaultAttachment {
+  public static final String ATTACHMENT_NAME = "UnitAttachment";
   public static final String UNITSMAYNOTLANDONCARRIER = "unitsMayNotLandOnCarrier";
   public static final String UNITSMAYNOTLEAVEALLIEDCARRIER = "unitsMayNotLeaveAlliedCarrier";
   private static final long serialVersionUID = -2946748686268541820L;

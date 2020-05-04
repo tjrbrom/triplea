@@ -5,6 +5,7 @@ import games.strategy.engine.data.GamePlayer;
 import games.strategy.engine.data.Territory;
 import games.strategy.engine.data.Unit;
 import games.strategy.engine.data.UnitType;
+import games.strategy.engine.data.UnitType.CombatModifiers;
 import games.strategy.triplea.delegate.DiceRoll;
 import games.strategy.triplea.delegate.DiceRoll.TotalPowerAndTotalRolls;
 import games.strategy.triplea.delegate.battle.UnitBattleComparator;
@@ -26,7 +27,7 @@ import lombok.experimental.UtilityClass;
 import org.triplea.java.collections.IntegerMap;
 
 @UtilityClass
-class CasualtyOrderOfLosses {
+public class CasualtyOrderOfLosses {
   private final Map<String, List<UnitType>> oolCache = new ConcurrentHashMap<>();
 
   void clearOolCache() {
@@ -35,7 +36,7 @@ class CasualtyOrderOfLosses {
 
   @Builder
   @Value
-  static class Parameters {
+  public static class Parameters {
     @Nonnull Collection<Unit> targetsToPickFrom;
     @Nonnull GamePlayer player;
     @Nonnull Collection<Unit> enemyUnits;
@@ -44,6 +45,22 @@ class CasualtyOrderOfLosses {
     @Nonnull IntegerMap<UnitType> costs;
     @Nonnull CombatModifiers combatModifiers;
     @Nonnull GameData data;
+
+    Map<UnitType, Map<GamePlayer, Integer>> enemyUnitCounts() {
+      final Map<UnitType, Map<GamePlayer, Integer>> enemy = new HashMap<>();
+      for (final Unit unit : enemyUnits) {
+        if (!enemy.containsKey(unit.getType())) {
+          enemy.put(unit.getType(), new HashMap<>());
+        }
+        if (!enemy.get(unit.getType()).containsKey(unit.getOwner())) {
+          enemy.get(unit.getType()).put(unit.getOwner(), 0);
+        }
+        final int newCount = enemy.get(unit.getType()).get(unit.getOwner()) + 1;
+        enemy.get(unit.getType()).put(unit.getOwner(), newCount);
+      }
+
+      return enemy;
+    }
   }
 
   /**
@@ -58,6 +75,15 @@ class CasualtyOrderOfLosses {
    * provided. (Veqryn)
    */
   List<Unit> sortUnitsForCasualtiesWithSupport(final Parameters parameters) {
+    //    return oldsortUnitsForCasualtiesWithSupport(parameters);
+
+    return IterativeTotalPowerOolOrdering.builder()
+        .parameters(parameters)
+        .build()
+        .sortUnitsForCasualtiesWithSupport();
+  }
+
+  List<Unit> oldsortUnitsForCasualtiesWithSupport(final Parameters parameters) {
     // Convert unit lists to unit type lists
     final List<UnitType> targetTypes = new ArrayList<>();
     for (final Unit u : parameters.targetsToPickFrom) {

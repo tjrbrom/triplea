@@ -129,9 +129,9 @@ public final class XmlGameElementMapper {
         .put("TechAttachment", TechAttachment::new)
         .put("TerritoryAttachment", TerritoryAttachment::new)
         .put("TerritoryEffectAttachment", TerritoryEffectAttachment::new)
-        .put("TriggerAttachment", TriggerAttachment::new)
-        .put("UnitAttachment", UnitAttachment::new)
-        .put("UnitSupportAttachment", UnitSupportAttachment::new)
+        .put(TriggerAttachment.ATTACHMENT_NAME, TriggerAttachment::new)
+        .put(UnitAttachment.ATTACHMENT_NAME, UnitAttachment::new)
+        .put(UnitSupportAttachment.ATTACHMENT_NAME, UnitSupportAttachment::new)
         .put("UserActionAttachment", UserActionAttachment::new)
         .putAll(auxiliaryAttachmentFactoriesByTypeName)
         .build();
