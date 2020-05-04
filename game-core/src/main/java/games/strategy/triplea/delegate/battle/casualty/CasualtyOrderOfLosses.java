@@ -5,7 +5,6 @@ import games.strategy.engine.data.GamePlayer;
 import games.strategy.engine.data.Territory;
 import games.strategy.engine.data.Unit;
 import games.strategy.engine.data.UnitType;
-import games.strategy.engine.data.UnitType.CombatModifiers;
 import games.strategy.triplea.delegate.DiceRoll;
 import games.strategy.triplea.delegate.DiceRoll.TotalPowerAndTotalRolls;
 import games.strategy.triplea.delegate.battle.UnitBattleComparator;
