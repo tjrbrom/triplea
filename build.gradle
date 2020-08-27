@@ -5,7 +5,7 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.29.0'
     id 'io.franzbecker.gradle-lombok' version '4.0.0' apply false
     id 'net.ltgt.errorprone' version '1.2.1' apply false
-    id 'com.diffplug.spotless' version '5.1.1' apply false
+    id 'com.diffplug.spotless' version '5.2.0' apply false
 }
 
 apply from: 'gradle/scripts/yaml.gradle'
@@ -97,7 +97,7 @@ subprojects {
         jlayerVersion = '1.0.1.4'
         junitJupiterVersion = '5.6.2'
         junitPlatformLauncherVersion = '1.5.2' // do not upgrade this to beyond 1.5.2 without testing IDEA test runner.
-        mockitoVersion = '3.5.2'
+        mockitoVersion = '3.5.7'
         openFeignVersion = '10.5.1'
         postgresqlVersion = '42.2.15'
         rateLimitjVersion = '0.6.0'
@@ -168,6 +168,7 @@ subprojects {
     tasks.withType(Test).configureEach {
         testLogging {
             exceptionFormat = 'full'
+            showStandardStreams = true
         }
     }
 
