@@ -1,6 +1,7 @@
 package games.strategy.engine.framework.ui;
 
 import games.strategy.engine.data.GameData;
+import games.strategy.engine.data.gameparser.GameParser;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -32,12 +33,12 @@ import org.triplea.util.LocalizeHtml;
 public class GameChooser extends JDialog {
   private static final long serialVersionUID = -3223711652118741132L;
 
-  private GameChooserEntry chosen;
+  private DefaultGameChooserEntry chosen;
 
   private GameChooser(
       final Frame owner, final GameChooserModel gameChooserModel, final String gameName) {
     super(owner, "Select a Game", true);
-    final JList<GameChooserEntry> gameList = new JList<>(gameChooserModel);
+    final JList<DefaultGameChooserEntry> gameList = new JList<>(gameChooserModel);
     if (gameName == null || gameName.equals("-")) {
       gameList.setSelectedIndex(0);
     } else {
@@ -142,7 +143,7 @@ public class GameChooser extends JDialog {
    * Displays the Game Chooser dialog and returns the game selected by the user or {@code null} if
    * no game was selected.
    */
-  public static GameChooserEntry chooseGame(
+  public static DefaultGameChooserEntry chooseGame(
       final Frame parent, final GameChooserModel gameChooserModel, final String defaultGameName) {
     final GameChooser chooser = new GameChooser(parent, gameChooserModel, defaultGameName);
     chooser.setSize(800, 600);
@@ -152,11 +153,16 @@ public class GameChooser extends JDialog {
     return chooser.chosen;
   }
 
-  private static String buildGameNotesText(final GameChooserEntry gameChooserEntry) {
+  private static String buildGameNotesText(final DefaultGameChooserEntry gameChooserEntry) {
     if (gameChooserEntry == null) {
       return "";
     }
-    final GameData data = gameChooserEntry.getGameData();
+
+    final GameData data = GameParser.parse(gameChooserEntry.getUri()).orElse(null);
+    if (data == null) {
+      return "Error reading file.. ";
+    }
+
     final StringBuilder notes = new StringBuilder();
     notes.append("<h1>").append(data.getGameName()).append("</h1>");
     final String mapNameDir = data.getProperties().get("mapName", "");
@@ -167,10 +173,6 @@ public class GameChooser extends JDialog {
     notes.append("<p></p>");
     final String trimmedNotes = data.getProperties().get("notes", "").trim();
     if (!trimmedNotes.isEmpty()) {
-      // UiContext resource loader should be null (or potentially is still the last game
-      // we played's loader),
-      // so we send the map dir name so that our localizing of image links can get a new resource
-      // loader if needed
       notes.append(LocalizeHtml.localizeImgLinksInHtml(trimmedNotes, mapNameDir));
     }
     return notes.toString();

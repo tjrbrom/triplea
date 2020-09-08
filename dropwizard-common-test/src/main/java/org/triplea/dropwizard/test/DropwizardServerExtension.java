@@ -5,11 +5,15 @@ import io.dropwizard.Configuration;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.testing.DropwizardTestSupport;
 import java.net.URI;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import lombok.extern.slf4j.Slf4j;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.mapper.RowMapperFactory;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -26,7 +30,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  */
 @Slf4j
 public abstract class DropwizardServerExtension<C extends Configuration>
-    implements BeforeAllCallback, ExtensionContext.Store.CloseableResource, ParameterResolver {
+    implements BeforeAllCallback, AfterEachCallback, ParameterResolver {
 
   private static Jdbi jdbi;
   private static URI serverUri;
@@ -56,26 +60,32 @@ public abstract class DropwizardServerExtension<C extends Configuration>
   @Override
   public void beforeAll(final ExtensionContext context) {
     final DropwizardTestSupport<C> support = getSupport();
-    try {
-      log.info("Starting local server for testing..");
-      support.before();
+    log.info("Starting local server for testing..");
+    support.before();
+
+    if (jdbi == null) {
       jdbi =
           Jdbi.create(getDatabase().getUrl(), getDatabase().getUser(), getDatabase().getPassword());
       jdbi.installPlugin(new SqlObjectPlugin());
       rowMappers().forEach(jdbi::registerRowMapper);
-
       log.info("Created JDBI connection to: {}", getDatabase().getUrl());
-      final String localUri = "http://localhost:" + support.getLocalPort();
-      serverUri = URI.create(localUri);
-      log.info("Local server URL set to: {}", localUri);
-    } catch (final RuntimeException e) {
-      log.warn("Ignoring setup error, server already started: {}", e.getMessage());
     }
+
+    final String localUri = "http://localhost:" + support.getLocalPort();
+    serverUri = URI.create(localUri);
+    log.info("Local server URL set to: {}", localUri);
   }
 
   @Override
-  public void close() {
-    // no-op, server will stop when unit tests terminate
+  public void afterEach(final ExtensionContext context) throws Exception {
+    final URL cleanupFileUrl = getClass().getClassLoader().getResource("db-cleanup.sql");
+    if (cleanupFileUrl != null) {
+      log.info("Running database cleanup..");
+      final String cleanupSql = Files.readString(Path.of(cleanupFileUrl.toURI()));
+      jdbi.withHandle(handle -> handle.execute(cleanupSql));
+    } else {
+      log.debug("No cleanup file 'db-cleanup' found");
+    }
   }
 
   @Override

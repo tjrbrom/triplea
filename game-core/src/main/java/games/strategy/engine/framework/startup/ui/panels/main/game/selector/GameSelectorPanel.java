@@ -5,7 +5,6 @@ import static org.triplea.swing.SwingComponents.DialogWithLinksTypes;
 
 import games.strategy.engine.ClientContext;
 import games.strategy.engine.data.GameData;
-import games.strategy.engine.data.GameParseException;
 import games.strategy.engine.data.properties.IEditableProperty;
 import games.strategy.engine.data.properties.PropertiesUi;
 import games.strategy.engine.framework.HeadlessAutoSaveType;
@@ -14,8 +13,8 @@ import games.strategy.engine.framework.startup.mc.ClientModel;
 import games.strategy.engine.framework.startup.ui.FileBackedGamePropertiesCache;
 import games.strategy.engine.framework.startup.ui.IGamePropertiesCache;
 import games.strategy.engine.framework.system.SystemProperties;
+import games.strategy.engine.framework.ui.DefaultGameChooserEntry;
 import games.strategy.engine.framework.ui.GameChooser;
-import games.strategy.engine.framework.ui.GameChooserEntry;
 import games.strategy.engine.framework.ui.GameChooserModel;
 import games.strategy.engine.framework.ui.background.BackgroundTaskRunner;
 import games.strategy.engine.framework.ui.background.TaskRunner;
@@ -361,23 +360,11 @@ public final class GameSelectorPanel extends JPanel implements Observer {
           new GameChooserModel(
               BackgroundTaskRunner.runInBackgroundAndReturn(
                   "Loading all available games...", GameChooserModel::parseMapFiles));
-      final GameChooserEntry entry =
+      final DefaultGameChooserEntry entry =
           GameChooser.chooseGame(
               JOptionPane.getFrameForComponent(this), gameChooserModel, model.getGameName());
       if (entry != null) {
-        BackgroundTaskRunner.runInBackground(
-            "Loading map...",
-            () -> {
-              if (!entry.isGameDataLoaded()) {
-                try {
-                  entry.fullyParseGameData();
-                } catch (final GameParseException e) {
-                  // TODO remove bad entries from the underlying model
-                  return;
-                }
-              }
-              model.load(entry);
-            });
+        BackgroundTaskRunner.runInBackground("Loading map...", () -> model.load(entry.getUri()));
         // warning: NPE check is not to protect against concurrency, another thread could still null
         // out game data.
         // The NPE check is to protect against the case where there are errors loading game, in
