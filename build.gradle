@@ -2,10 +2,10 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
     id 'java'
-    id 'com.github.ben-manes.versions' version '0.31.0'
+    id 'com.github.ben-manes.versions' version '0.33.0'
     id 'io.franzbecker.gradle-lombok' version '4.0.0' apply false
     id 'net.ltgt.errorprone' version '1.2.1' apply false
-    id 'com.diffplug.spotless' version '5.4.0' apply false
+    id 'com.diffplug.spotless' version '5.5.1' apply false
 }
 
 apply from: 'gradle/scripts/yaml.gradle'
@@ -95,8 +95,8 @@ subprojects {
         jaxbImplVersion = '2.3.3'
         jdbiVersion = '3.14.4'
         jlayerVersion = '1.0.1.4'
-        junitJupiterVersion = '5.6.2'
-        junitPlatformLauncherVersion = '1.5.2' // do not upgrade this to beyond 1.5.2 without testing IDEA test runner.
+        junitJupiterVersion = '5.7.0'
+        junitPlatformLauncherVersion = '1.7.0'
         mockitoVersion = '3.5.10'
         openFeignVersion = '10.5.1'
         postgresqlVersion = '42.2.16'

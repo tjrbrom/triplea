@@ -9,16 +9,12 @@ import static games.strategy.triplea.delegate.battle.steps.BattleStep.Order.SUB_
 import static games.strategy.triplea.delegate.battle.steps.BattleStep.Order.SUB_OFFENSIVE_RETREAT_AFTER_BATTLE;
 import static games.strategy.triplea.delegate.battle.steps.BattleStep.Order.SUB_OFFENSIVE_RETREAT_BEFORE_BATTLE;
 
-import games.strategy.engine.data.GameData;
-import games.strategy.engine.data.GamePlayer;
-import games.strategy.engine.data.Territory;
-import games.strategy.engine.data.Unit;
-import games.strategy.triplea.Properties;
 import games.strategy.triplea.delegate.Matches;
 import games.strategy.triplea.delegate.battle.BattleActions;
 import games.strategy.triplea.delegate.battle.BattleState;
 import games.strategy.triplea.delegate.battle.BattleStepStrings;
 import games.strategy.triplea.delegate.battle.steps.change.LandParatroopers;
+import games.strategy.triplea.delegate.battle.steps.change.RemoveUnprotectedUnits;
 import games.strategy.triplea.delegate.battle.steps.fire.NavalBombardment;
 import games.strategy.triplea.delegate.battle.steps.fire.aa.DefensiveAaFire;
 import games.strategy.triplea.delegate.battle.steps.fire.aa.OffensiveAaFire;
@@ -33,127 +29,37 @@ import games.strategy.triplea.delegate.battle.steps.retreat.DefensiveSubsRetreat
 import games.strategy.triplea.delegate.battle.steps.retreat.OffensiveSubsRetreat;
 import games.strategy.triplea.delegate.battle.steps.retreat.sub.SubmergeSubsVsOnlyAirStep;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NonNull;
 
-/** Get the steps that will occurr in the battle */
+/** Get the steps that will occur in the battle */
 @Builder
-public class BattleSteps implements BattleStepStrings, BattleState {
+public class BattleSteps implements BattleStepStrings {
 
-  @Getter(onMethod = @__({@Override}))
-  final int battleRound;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull GamePlayer attacker;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull GamePlayer defender;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> offensiveAa;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> defendingAa;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> attackingUnits;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> defendingUnits;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> attackingWaitingToDie;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> defendingWaitingToDie;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Territory battleSite;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull GameData gameData;
-
-  @Getter(onMethod = @__({@Override}))
-  final @NonNull Collection<Unit> bombardingUnits;
-
-  final @NonNull Function<Collection<Unit>, Collection<Unit>> getDependentUnits;
-  final @NonNull Boolean isAmphibious;
-  final @NonNull Supplier<Collection<Territory>> getAttackerRetreatTerritories;
-  final @NonNull Function<Collection<Unit>, Collection<Territory>> getEmptyOrFriendlySeaNeighbors;
-  final @NonNull BattleActions battleActions;
-
-  final @NonNull Boolean isOver;
-
-  @Override
-  public Collection<Territory> getAttackerRetreatTerritories() {
-    return getAttackerRetreatTerritories.get();
-  }
-
-  @Override
-  public Collection<Territory> getEmptyOrFriendlySeaNeighbors(final Collection<Unit> units) {
-    return getEmptyOrFriendlySeaNeighbors.apply(units);
-  }
-
-  @Override
-  public Collection<Unit> getDependentUnits(final Collection<Unit> units) {
-    return getDependentUnits.apply(units);
-  }
-
-  @Override
-  public Collection<Unit> getWaitingToDie(final EnumSet<Side> sides) {
-    final Collection<Unit> waitingToDie = new ArrayList<>();
-    if (sides.contains(Side.OFFENSE)) {
-      waitingToDie.addAll(attackingWaitingToDie);
-    }
-    if (sides.contains(Side.DEFENSE)) {
-      waitingToDie.addAll(defendingWaitingToDie);
-    }
-    return waitingToDie;
-  }
-
-  @Override
-  public void clearWaitingToDie(final EnumSet<Side> sides) {
-    if (sides.contains(Side.OFFENSE)) {
-      attackingWaitingToDie.clear();
-    }
-    if (sides.contains(Side.DEFENSE)) {
-      defendingWaitingToDie.clear();
-    }
-  }
-
-  @Override
-  public boolean isOver() {
-    return isOver;
-  }
-
-  @Override
-  public boolean isAmphibious() {
-    return isAmphibious;
-  }
+  final BattleState battleState;
+  final BattleActions battleActions;
 
   public List<String> get() {
-    final boolean isBattleSiteWater = battleSite.isWater();
+    final boolean isBattleSiteWater = battleState.getBattleSite().isWater();
 
-    final BattleStep offensiveAaStep = new OffensiveAaFire(this, battleActions);
-    final BattleStep defensiveAaStep = new DefensiveAaFire(this, battleActions);
-    final BattleStep submergeSubsVsOnlyAir = new SubmergeSubsVsOnlyAirStep(this, battleActions);
-    final BattleStep airAttackVsNonSubs = new AirAttackVsNonSubsStep(this);
-    final BattleStep airDefendVsNonSubs = new AirDefendVsNonSubsStep(this);
-    final BattleStep navalBombardment = new NavalBombardment(this, battleActions);
-    final BattleStep landParatroopers = new LandParatroopers(this, battleActions);
-    final BattleStep offensiveSubsSubmerge = new OffensiveSubsRetreat(this, battleActions);
-    final BattleStep defensiveSubsSubmerge = new DefensiveSubsRetreat(this, battleActions);
-    final BattleStep offensiveFirstStrike = new OffensiveFirstStrike(this, battleActions);
-    final BattleStep defensiveFirstStrike = new DefensiveFirstStrike(this, battleActions);
-    final BattleStep firstStrikeCasualties = new ClearFirstStrikeCasualties(this, battleActions);
-    final BattleStep offensiveStandard = new OffensiveGeneral(this, battleActions);
-    final BattleStep defensiveStandard = new DefensiveGeneral(this, battleActions);
+    final BattleStep offensiveAaStep = new OffensiveAaFire(battleState, battleActions);
+    final BattleStep defensiveAaStep = new DefensiveAaFire(battleState, battleActions);
+    final BattleStep submergeSubsVsOnlyAir =
+        new SubmergeSubsVsOnlyAirStep(battleState, battleActions);
+    final BattleStep removeUnprotectedUnits =
+        new RemoveUnprotectedUnits(battleState, battleActions);
+    final BattleStep airAttackVsNonSubs = new AirAttackVsNonSubsStep(battleState);
+    final BattleStep airDefendVsNonSubs = new AirDefendVsNonSubsStep(battleState);
+    final BattleStep navalBombardment = new NavalBombardment(battleState, battleActions);
+    final BattleStep landParatroopers = new LandParatroopers(battleState, battleActions);
+    final BattleStep offensiveSubsSubmerge = new OffensiveSubsRetreat(battleState, battleActions);
+    final BattleStep defensiveSubsSubmerge = new DefensiveSubsRetreat(battleState, battleActions);
+    final BattleStep offensiveFirstStrike = new OffensiveFirstStrike(battleState, battleActions);
+    final BattleStep defensiveFirstStrike = new DefensiveFirstStrike(battleState, battleActions);
+    final BattleStep firstStrikeCasualties =
+        new ClearFirstStrikeCasualties(battleState, battleActions);
+    final BattleStep offensiveStandard = new OffensiveGeneral(battleState, battleActions);
+    final BattleStep defensiveStandard = new DefensiveGeneral(battleState, battleActions);
 
     final List<String> steps = new ArrayList<>();
     steps.addAll(offensiveAaStep.getNames());
@@ -168,13 +74,7 @@ public class BattleSteps implements BattleStepStrings, BattleState {
     if (defensiveSubsSubmerge.getOrder() == SUB_DEFENSIVE_RETREAT_BEFORE_BATTLE) {
       steps.addAll(defensiveSubsSubmerge.getNames());
     }
-    // See if there any unescorted transports
-    if (isBattleSiteWater
-        && Properties.getTransportCasualtiesRestricted(gameData)
-        && (attackingUnits.stream().anyMatch(Matches.unitIsTransport())
-            || defendingUnits.stream().anyMatch(Matches.unitIsTransport()))) {
-      steps.add(REMOVE_UNESCORTED_TRANSPORTS);
-    }
+    steps.addAll(removeUnprotectedUnits.getNames());
     steps.addAll(submergeSubsVsOnlyAir.getNames());
 
     if (offensiveFirstStrike.getOrder() == FIRST_STRIKE_OFFENSIVE) {
@@ -211,13 +111,24 @@ public class BattleSteps implements BattleStepStrings, BattleState {
     // a sea zone, we always have to have the retreat option shown
     // later, if our sea units die, we may ask the user to retreat
     final boolean someAirAtSea =
-        isBattleSiteWater && attackingUnits.stream().anyMatch(Matches.unitIsAir());
+        isBattleSiteWater
+            && battleState.getUnits(BattleState.Side.OFFENSE).stream()
+                .anyMatch(Matches.unitIsAir());
     if (RetreatChecks.canAttackerRetreat(
-            defendingUnits, gameData, getAttackerRetreatTerritories, isAmphibious)
+            battleState.getUnits(BattleState.Side.DEFENSE),
+            battleState.getGameData(),
+            battleState::getAttackerRetreatTerritories,
+            battleState.isAmphibious())
         || someAirAtSea
-        || RetreatChecks.canAttackerRetreatPartialAmphib(attackingUnits, gameData, isAmphibious)
-        || RetreatChecks.canAttackerRetreatPlanes(attackingUnits, gameData, isAmphibious)) {
-      steps.add(attacker.getName() + ATTACKER_WITHDRAW);
+        || RetreatChecks.canAttackerRetreatPartialAmphib(
+            battleState.getUnits(BattleState.Side.OFFENSE),
+            battleState.getGameData(),
+            battleState.isAmphibious())
+        || RetreatChecks.canAttackerRetreatPlanes(
+            battleState.getUnits(BattleState.Side.OFFENSE),
+            battleState.getGameData(),
+            battleState.isAmphibious())) {
+      steps.add(battleState.getAttacker().getName() + ATTACKER_WITHDRAW);
     }
     if (defensiveSubsSubmerge.getOrder() == SUB_DEFENSIVE_RETREAT_AFTER_BATTLE) {
       steps.addAll(defensiveSubsSubmerge.getNames());
