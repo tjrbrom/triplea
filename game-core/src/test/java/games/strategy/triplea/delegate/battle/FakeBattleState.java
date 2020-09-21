@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import games.strategy.engine.data.GameData;
 import games.strategy.engine.data.GamePlayer;
 import games.strategy.engine.data.Territory;
+import games.strategy.engine.data.TerritoryEffect;
 import games.strategy.engine.data.Unit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,14 +24,18 @@ import lombok.NonNull;
 @Builder
 public class FakeBattleState implements BattleState {
 
-  @Getter(onMethod = @__({@Override}))
   final int battleRound;
+
+  final int maxBattleRounds;
 
   @Getter(onMethod = @__({@Override}))
   final UUID battleId;
 
   @Getter(onMethod = @__({@Override}))
   final @NonNull Territory battleSite;
+
+  @Getter(onMethod = @__({@Override}))
+  final @NonNull Collection<TerritoryEffect> territoryEffects;
 
   @Getter(onMethod = @__({@Override}))
   final @NonNull GamePlayer attacker;
@@ -51,6 +56,9 @@ public class FakeBattleState implements BattleState {
   final @NonNull Collection<Unit> defendingAa;
 
   @Getter(onMethod = @__({@Override}))
+  final Collection<Unit> amphibiousLandAttackers;
+
+  @Getter(onMethod = @__({@Override}))
   final @NonNull GameData gameData;
 
   @Getter(onMethod = @__({@Override}))
@@ -60,9 +68,10 @@ public class FakeBattleState implements BattleState {
   final boolean over;
 
   @Getter(onMethod = @__({@Override}))
-  final Collection<Territory> attackerRetreatTerritories;
+  final boolean headless;
 
-  final Collection<Territory> emptyOrFriendlySeaNeighbors;
+  @Getter(onMethod = @__({@Override}))
+  final Collection<Territory> attackerRetreatTerritories;
 
   final Collection<Unit> dependentUnits;
 
@@ -70,13 +79,13 @@ public class FakeBattleState implements BattleState {
   final @NonNull Collection<Unit> bombardingUnits;
 
   @Override
-  public Collection<Territory> getEmptyOrFriendlySeaNeighbors(final Collection<Unit> units) {
-    return emptyOrFriendlySeaNeighbors;
+  public Collection<Unit> getDependentUnits(final Collection<Unit> units) {
+    return dependentUnits;
   }
 
   @Override
-  public Collection<Unit> getDependentUnits(final Collection<Unit> units) {
-    return dependentUnits;
+  public BattleRound getBattleRoundState() {
+    return BattleRound.of(battleRound, maxBattleRounds);
   }
 
   @Override
@@ -152,7 +161,9 @@ public class FakeBattleState implements BattleState {
   public static FakeBattleState.FakeBattleStateBuilder givenBattleStateBuilder() {
     return FakeBattleState.builder()
         .battleRound(2)
+        .maxBattleRounds(-1)
         .battleSite(mock(Territory.class))
+        .territoryEffects(List.of())
         .attackingUnits(List.of())
         .defendingUnits(List.of())
         .attackingWaitingToDie(List.of())
@@ -163,10 +174,10 @@ public class FakeBattleState implements BattleState {
         .defendingAa(List.of())
         .bombardingUnits(List.of())
         .dependentUnits(List.of())
+        .amphibiousLandAttackers(List.of())
         .gameData(mock(GameData.class))
         .amphibious(false)
         .over(false)
-        .attackerRetreatTerritories(List.of())
-        .emptyOrFriendlySeaNeighbors(List.of());
+        .attackerRetreatTerritories(List.of());
   }
 }

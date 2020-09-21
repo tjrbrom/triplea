@@ -24,7 +24,6 @@ import games.strategy.triplea.Properties;
 import games.strategy.triplea.UnitUtils;
 import games.strategy.triplea.attachments.TechAbilityAttachment;
 import games.strategy.triplea.attachments.UnitAttachment;
-import games.strategy.triplea.delegate.DiceRoll;
 import games.strategy.triplea.delegate.ExecutionStack;
 import games.strategy.triplea.delegate.IExecutable;
 import games.strategy.triplea.delegate.Matches;
@@ -32,8 +31,9 @@ import games.strategy.triplea.delegate.TransportTracker;
 import games.strategy.triplea.delegate.battle.casualty.CasualtySortingUtil;
 import games.strategy.triplea.delegate.battle.steps.BattleStep;
 import games.strategy.triplea.delegate.battle.steps.BattleSteps;
-import games.strategy.triplea.delegate.battle.steps.RetreatChecks;
+import games.strategy.triplea.delegate.battle.steps.change.CheckGeneralBattleEndOld;
 import games.strategy.triplea.delegate.battle.steps.change.ClearAaCasualties;
+import games.strategy.triplea.delegate.battle.steps.change.ClearGeneralCasualties;
 import games.strategy.triplea.delegate.battle.steps.change.LandParatroopers;
 import games.strategy.triplea.delegate.battle.steps.change.MarkNoMovementLeft;
 import games.strategy.triplea.delegate.battle.steps.change.RemoveNonCombatants;
@@ -48,6 +48,7 @@ import games.strategy.triplea.delegate.battle.steps.fire.firststrike.OffensiveFi
 import games.strategy.triplea.delegate.battle.steps.fire.general.DefensiveGeneral;
 import games.strategy.triplea.delegate.battle.steps.fire.general.OffensiveGeneral;
 import games.strategy.triplea.delegate.battle.steps.retreat.DefensiveSubsRetreat;
+import games.strategy.triplea.delegate.battle.steps.retreat.OffensiveGeneralRetreat;
 import games.strategy.triplea.delegate.battle.steps.retreat.OffensiveSubsRetreat;
 import games.strategy.triplea.delegate.battle.steps.retreat.sub.SubmergeSubsVsOnlyAirStep;
 import games.strategy.triplea.delegate.data.BattleRecord;
@@ -64,12 +65,12 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.extern.java.Log;
 import org.triplea.java.PredicateBuilder;
+import org.triplea.java.RemoveOnNextMajorRelease;
 import org.triplea.java.collections.CollectionUtils;
 import org.triplea.java.collections.IntegerMap;
 import org.triplea.sound.SoundPath;
@@ -307,6 +308,11 @@ public class MustFightBattle extends DependentBattle
               Matches.unitIsOwnedBy(defender).or(Matches.enemyUnit(attacker, gameData))));
     }
     return new ArrayList<>(remaining);
+  }
+
+  @Override
+  public BattleRound getBattleRoundState() {
+    return BattleRound.of(round, maxRounds);
   }
 
   @Override
@@ -876,52 +882,6 @@ public class MustFightBattle extends DependentBattle
     return BattleSteps.builder().battleState(this).battleActions(this).build().get();
   }
 
-  private boolean canAttackerRetreatInStalemate() {
-    // First check if any units have an explicit "can retreat on stalemate"
-    // property. If none do (all are null), then we will use a fallback algorithm.
-    // If any unit has "can retreat on stalemate" set, then we will return true
-    // only if all units either have the property set to null or true, if any
-    // are set to false then we will return false.
-
-    // Otherwise, if we do not have an explicit property, then we fallback
-    // to enforcing the V3 transport vs transport rule that allows retreat in
-    // that situation. Ideally all maps would explicitly use the "can retreat
-    // on stalemate property", but not all do so we need to account for the
-    // V3 transport vs transport rule as a fallback algorithm without it.
-
-    // First, collect all of the non-null 'can retreat on stalemate' option values.
-    final Set<Boolean> canRetreatOptions =
-        attackingUnits.stream()
-            .map(Unit::getType)
-            .map(UnitAttachment::get)
-            .map(UnitAttachment::getCanRetreatOnStalemate)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
-
-    final boolean propertyIsSetAtLeastOnce = !canRetreatOptions.isEmpty();
-
-    // next, check if all of the non-null properties are set to true.
-    final boolean allowRetreatFromProperty = canRetreatOptions.stream().allMatch(b -> b);
-
-    return (propertyIsSetAtLeastOnce && allowRetreatFromProperty)
-        || (!propertyIsSetAtLeastOnce && transportsVsTransports());
-  }
-
-  private boolean transportsVsTransports() {
-    // Check if both sides have only V3 (non-combat) transports remaining.
-    // See: https://github.com/triplea-game/triplea/issues/2367
-    // Rule: "In a sea battle, if both sides have only transports remaining, the
-    // attacker’s transports can remain in the contested sea zone or retreat.
-    return onlyPowerlessAttackingTransportsLeft()
-        && RetreatChecks.onlyDefenselessDefendingTransportsLeft(defendingUnits, gameData);
-  }
-
-  private boolean onlyPowerlessAttackingTransportsLeft() {
-    return Properties.getTransportCasualtiesRestricted(gameData)
-        && !attackingUnits.isEmpty()
-        && attackingUnits.stream().allMatch(Matches.unitIsTransportButNotCombatTransport());
-  }
-
   @Override
   public Collection<Territory> getAttackerRetreatTerritories() {
     // TODO: when attacking with paratroopers (air + carried land), there are several bugs in
@@ -981,27 +941,6 @@ public class MustFightBattle extends DependentBattle
     return possible;
   }
 
-  @Override
-  public Collection<Territory> getEmptyOrFriendlySeaNeighbors(
-      final Collection<Unit> unitsToRetreat) {
-    Collection<Territory> possible = gameData.getMap().getNeighbors(battleSite);
-    if (headless) {
-      return possible;
-    }
-    // make sure we can move through the any canals
-    final Predicate<Territory> canalMatch =
-        t -> {
-          final Route r = new Route(battleSite, t);
-          return new MoveValidator(gameData).validateCanal(r, unitsToRetreat, defender) == null;
-        };
-    final Predicate<Territory> match =
-        Matches.territoryIsWater()
-            .and(Matches.territoryHasNoEnemyUnits(defender, gameData))
-            .and(canalMatch);
-    possible = CollectionUtils.getMatches(possible, match);
-    return possible;
-  }
-
   private void pushFightLoopOnStack() {
     if (isOver) {
       return;
@@ -1042,14 +981,9 @@ public class MustFightBattle extends DependentBattle
     final List<IExecutable> steps =
         BattleStep.getAll(this, this).stream()
             .sorted(Comparator.comparing(BattleStep::getOrder))
-            // *_AFTER_BATTLE order occurs in addCheckEndBattleAndRetreatingSteps()
-            .filter(
-                step ->
-                    step.getOrder() != SUB_OFFENSIVE_RETREAT_AFTER_BATTLE
-                        && step.getOrder() != SUB_DEFENSIVE_RETREAT_AFTER_BATTLE)
             .collect(Collectors.toList());
 
-    addCheckEndBattleAndRetreatingSteps(steps);
+    addRoundResetStep(steps);
     return steps;
   }
 
@@ -1071,6 +1005,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 3802352588499530533L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep offensiveAaStep =
             new OffensiveAaFire(MustFightBattle.this, MustFightBattle.this);
@@ -1082,6 +1017,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = -1370090785540214199L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep defensiveAaStep =
             new DefensiveAaFire(MustFightBattle.this, MustFightBattle.this);
@@ -1093,6 +1029,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 8762796262264296436L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep clearAaCasualties =
             new ClearAaCasualties(MustFightBattle.this, MustFightBattle.this);
@@ -1104,6 +1041,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 2781652892457063082L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep removeNonCombatants = new RemoveNonCombatants(MustFightBattle.this);
         removeNonCombatants.execute(stack, bridge);
@@ -1114,6 +1052,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = -2255284529092427441L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep navalBombardment =
             new NavalBombardment(MustFightBattle.this, MustFightBattle.this);
@@ -1125,6 +1064,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 3389635558184415797L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep removeNonCombatants = new RemoveNonCombatants(MustFightBattle.this);
         removeNonCombatants.execute(stack, bridge);
@@ -1135,6 +1075,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 7193353768857658286L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep landParatroopers =
             new LandParatroopers(MustFightBattle.this, MustFightBattle.this);
@@ -1146,6 +1087,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = -6676316363537467594L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep markNoMovementLeft =
             new MarkNoMovementLeft(MustFightBattle.this, MustFightBattle.this);
@@ -1156,6 +1098,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 6775880082912594489L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep offensiveSubsRetreat =
             new OffensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
@@ -1168,6 +1111,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 7056448091800764539L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep defensiveSubsRetreat =
             new DefensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
@@ -1180,6 +1124,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 99989L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new RemoveUnprotectedUnits(MustFightBattle.this, MustFightBattle.this)
             .execute(stack, bridge);
@@ -1189,6 +1134,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 99990L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         final BattleStep submergeSubsVsOnlyAir =
             new SubmergeSubsVsOnlyAirStep(MustFightBattle.this, MustFightBattle.this);
@@ -1199,6 +1145,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 99992L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new DefensiveFirstStrike(MustFightBattle.this, MustFightBattle.this, ReturnFire.NONE)
             .execute(stack, bridge);
@@ -1209,12 +1156,13 @@ public class MustFightBattle extends DependentBattle
     // be defined in the same scope as the IExecutables so that when
     // the save is loaded, it will correctly populate the saved value
     // of these variables.
-    final ReturnFire returnFireAgainstAttackingSubs = ReturnFire.ALL;
-    final ReturnFire returnFireAgainstDefendingSubs = ReturnFire.ALL;
+    @RemoveOnNextMajorRelease final ReturnFire returnFireAgainstAttackingSubs = ReturnFire.ALL;
+    @RemoveOnNextMajorRelease final ReturnFire returnFireAgainstDefendingSubs = ReturnFire.ALL;
     new IExecutable() {
       private static final long serialVersionUID = 99991L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new OffensiveFirstStrike(
                 MustFightBattle.this,
@@ -1228,6 +1176,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 99992L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new DefensiveFirstStrike(
                 MustFightBattle.this,
@@ -1241,6 +1190,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = -7634700553071456768L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new RemoveFirstStrikeSuicide(MustFightBattle.this, MustFightBattle.this)
             .execute(stack, bridge);
@@ -1250,6 +1200,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 99994L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new OffensiveGeneral(MustFightBattle.this, MustFightBattle.this).execute(stack, bridge);
       }
@@ -1258,6 +1209,7 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 999921L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new DefensiveFirstStrike(MustFightBattle.this, MustFightBattle.this, ReturnFire.ALL)
             .execute(stack, bridge);
@@ -1267,8 +1219,96 @@ public class MustFightBattle extends DependentBattle
       private static final long serialVersionUID = 1560702114917865290L;
 
       @Override
+      @RemoveOnNextMajorRelease
       public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
         new DefensiveGeneral(MustFightBattle.this, MustFightBattle.this).execute(stack, bridge);
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = 8611067962952500496L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        new ClearGeneralCasualties(MustFightBattle.this, MustFightBattle.this)
+            .execute(stack, bridge);
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = 6387198382888361848L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        new RemoveGeneralSuicide(MustFightBattle.this, MustFightBattle.this).execute(stack, bridge);
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = 5259103822937067667L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        new CheckGeneralBattleEndOld(MustFightBattle.this, MustFightBattle.this)
+            .execute(stack, bridge);
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = 6775880082912594489L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        final BattleStep offensiveSubsRetreat =
+            new OffensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
+        if (offensiveSubsRetreat.getOrder() == SUB_OFFENSIVE_RETREAT_AFTER_BATTLE) {
+          offensiveSubsRetreat.execute(stack, bridge);
+        }
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = -1150863964807721395L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        // Intentionally left blank
+        // Old saves will fall through to the IExecutable that instantiates
+        // OffensiveGeneralRetreat which does the work that previously was here
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = -1150863964807721395L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        // Intentionally left blank
+        // Old saves will fall through to the IExecutable that instantiates
+        // OffensiveGeneralRetreat which does the work that previously was here
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = 669349383898975048L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        new OffensiveGeneralRetreat(MustFightBattle.this, MustFightBattle.this)
+            .execute(stack, bridge);
+      }
+    };
+    new IExecutable() {
+      private static final long serialVersionUID = -1544916305666912480L;
+
+      @Override
+      @RemoveOnNextMajorRelease
+      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
+        final BattleStep defensiveSubsRetreat =
+            new DefensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
+        if (defensiveSubsRetreat.getOrder() == SUB_DEFENSIVE_RETREAT_AFTER_BATTLE) {
+          defensiveSubsRetreat.execute(stack, bridge);
+        }
       }
     };
   }
@@ -1561,160 +1601,7 @@ public class MustFightBattle extends DependentBattle
     }
   }
 
-  private void addCheckEndBattleAndRetreatingSteps(final List<IExecutable> steps) {
-    final BattleStep removeGeneralSuicide = new RemoveGeneralSuicide(this, this);
-    steps.add(
-        new IExecutable() {
-          private static final long serialVersionUID = 8611067962952500496L;
-
-          @Override
-          public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-            clearWaitingToDieAndDamagedChangesInto(bridge);
-          }
-        });
-    steps.add(removeGeneralSuicide);
-    new IExecutable() {
-      private static final long serialVersionUID = 6387198382888361848L;
-
-      @Override
-      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-        new RemoveGeneralSuicide(MustFightBattle.this, MustFightBattle.this).execute(stack, bridge);
-      }
-    };
-    steps.add(
-        new IExecutable() {
-          private static final long serialVersionUID = 5259103822937067667L;
-
-          @Override
-          public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-            if (CollectionUtils.getMatches(attackingUnits, Matches.unitIsNotInfrastructure()).size()
-                == 0) {
-              endBattle(bridge);
-              defenderWins(bridge);
-            } else if (CollectionUtils.getMatches(defendingUnits, Matches.unitIsNotInfrastructure())
-                    .size()
-                == 0) {
-              new RemoveUnprotectedUnits(MustFightBattle.this, MustFightBattle.this)
-                  .removeUnprotectedUnits(bridge, Side.DEFENSE);
-              endBattle(bridge);
-              attackerWins(bridge);
-            } else if (maxRounds > 0 && maxRounds <= round) {
-              if (canAttackerRetreatInStalemate()) {
-                attackerRetreat(bridge);
-              }
-
-              endBattle(bridge);
-              nobodyWins(bridge);
-            } else {
-              final int attackPower =
-                  DiceRoll.getTotalPowerAndRolls(
-                          DiceRoll.getUnitPowerAndRollsForNormalBattles(
-                              attackingUnits,
-                              defendingUnits,
-                              attackingUnits,
-                              false,
-                              gameData,
-                              battleSite,
-                              territoryEffects,
-                              isAmphibious,
-                              amphibiousLandAttackers),
-                          gameData)
-                      .getEffectivePower();
-              final int defensePower =
-                  DiceRoll.getTotalPowerAndRolls(
-                          DiceRoll.getUnitPowerAndRollsForNormalBattles(
-                              defendingUnits,
-                              attackingUnits,
-                              defendingUnits,
-                              true,
-                              gameData,
-                              battleSite,
-                              territoryEffects,
-                              isAmphibious,
-                              amphibiousLandAttackers),
-                          gameData)
-                      .getEffectivePower();
-              if (attackPower == 0 && defensePower == 0) {
-                if (canAttackerRetreatInStalemate()) {
-                  attackerRetreat(bridge);
-                }
-
-                endBattle(bridge);
-                nobodyWins(bridge);
-              }
-            }
-          }
-        });
-    final BattleStep offensiveSubsRetreat = new OffensiveSubsRetreat(this, this);
-    if (offensiveSubsRetreat.getOrder() == SUB_OFFENSIVE_RETREAT_AFTER_BATTLE) {
-      steps.add(offensiveSubsRetreat);
-    }
-    new IExecutable() {
-      private static final long serialVersionUID = 6775880082912594489L;
-
-      @Override
-      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-        final BattleStep offensiveSubsRetreat =
-            new OffensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
-        if (offensiveSubsRetreat.getOrder() == SUB_OFFENSIVE_RETREAT_AFTER_BATTLE) {
-          offensiveSubsRetreat.execute(stack, bridge);
-        }
-      }
-    };
-    steps.add(
-        new IExecutable() {
-          private static final long serialVersionUID = -1150863964807721395L;
-
-          @Override
-          public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-            if (!isOver
-                && RetreatChecks.canAttackerRetreatPlanes(attackingUnits, gameData, isAmphibious)
-                && !RetreatChecks.canAttackerRetreatPartialAmphib(
-                    attackingUnits, gameData, isAmphibious)) {
-              attackerRetreatPlanes(bridge);
-            }
-          }
-        });
-    steps.add(
-        new IExecutable() {
-          private static final long serialVersionUID = -1150863964807721395L;
-
-          @Override
-          public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-            if (!isOver
-                && RetreatChecks.canAttackerRetreatPartialAmphib(
-                    attackingUnits, gameData, isAmphibious)) {
-              attackerRetreatNonAmphibUnits(bridge);
-            }
-          }
-        });
-    steps.add(
-        new IExecutable() {
-          private static final long serialVersionUID = 669349383898975048L;
-
-          @Override
-          public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-            if (!isOver) {
-              attackerRetreat(bridge);
-            }
-          }
-        });
-    final BattleStep defensiveSubsRetreat = new DefensiveSubsRetreat(this, this);
-    if (defensiveSubsRetreat.getOrder() == SUB_DEFENSIVE_RETREAT_AFTER_BATTLE) {
-      steps.add(defensiveSubsRetreat);
-    }
-    new IExecutable() {
-      private static final long serialVersionUID = -1544916305666912480L;
-
-      @Override
-      public void execute(final ExecutionStack stack, final IDelegateBridge bridge) {
-        final BattleStep defensiveSubsRetreat =
-            new DefensiveSubsRetreat(MustFightBattle.this, MustFightBattle.this);
-        if (defensiveSubsRetreat.getOrder() == SUB_DEFENSIVE_RETREAT_AFTER_BATTLE) {
-          defensiveSubsRetreat.execute(stack, bridge);
-        }
-      }
-    };
+  private void addRoundResetStep(final List<IExecutable> steps) {
     final IExecutable loop =
         new IExecutable() {
           private static final long serialVersionUID = 3118458517320468680L;
@@ -1748,34 +1635,6 @@ public class MustFightBattle extends DependentBattle
             }
           }
         });
-  }
-
-  private void attackerRetreatPlanes(final IDelegateBridge bridge) {
-    // planes retreat to the same square the battle is in, and then should move during non combat to
-    // their landing site, or be scrapped if they can't find one.
-    if (attackingUnits.stream().anyMatch(Matches.unitIsAir())) {
-      queryRetreat(false, RetreatType.PLANES, bridge, Set.of(battleSite));
-    }
-  }
-
-  private void attackerRetreatNonAmphibUnits(final IDelegateBridge bridge) {
-    final Collection<Territory> possible = getAttackerRetreatTerritories();
-    queryRetreat(false, RetreatType.PARTIAL_AMPHIB, bridge, possible);
-  }
-
-  private void attackerRetreat(final IDelegateBridge bridge) {
-    if (!RetreatChecks.canAttackerRetreat(
-        defendingUnits, gameData, this::getAttackerRetreatTerritories, isAmphibious)) {
-      return;
-    }
-    final Collection<Territory> possible = getAttackerRetreatTerritories();
-    if (!isOver) {
-      if (isAmphibious) {
-        queryRetreat(false, RetreatType.PARTIAL_AMPHIB, bridge, possible);
-      } else {
-        queryRetreat(false, RetreatType.DEFAULT, bridge, possible);
-      }
-    }
   }
 
   @Override
@@ -2093,7 +1952,8 @@ public class MustFightBattle extends DependentBattle
     return change;
   }
 
-  private void defenderWins(final IDelegateBridge bridge) {
+  @Override
+  public void defenderWins(final IDelegateBridge bridge) {
     whoWon = WhoWon.DEFENDER;
     bridge.getDisplayChannelBroadcaster().battleEnd(battleId, defender.getName() + " win");
     if (Properties.getAbandonedTerritoriesMayBeTakenOverImmediately(gameData)) {
@@ -2148,7 +2008,8 @@ public class MustFightBattle extends DependentBattle
     }
   }
 
-  private void nobodyWins(final IDelegateBridge bridge) {
+  @Override
+  public void nobodyWins(final IDelegateBridge bridge) {
     whoWon = WhoWon.DRAW;
     bridge.getDisplayChannelBroadcaster().battleEnd(battleId, "Stalemate");
     bridge

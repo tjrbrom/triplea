@@ -3,9 +3,12 @@ package games.strategy.triplea.delegate.battle;
 import games.strategy.engine.data.GameData;
 import games.strategy.engine.data.GamePlayer;
 import games.strategy.engine.data.Territory;
+import games.strategy.engine.data.TerritoryEffect;
 import games.strategy.engine.data.Unit;
 import java.util.Collection;
 import java.util.UUID;
+import lombok.Value;
+import org.triplea.java.ChangeOnNextMajorRelease;
 
 /** Exposes the battle state and allows updates to it */
 public interface BattleState {
@@ -19,10 +22,27 @@ public interface BattleState {
     }
   }
 
-  int getBattleRound();
+  @Value(staticConstructor = "of")
+  class BattleRound {
+    int round;
+    int maxRounds;
+
+    public boolean isLastRound() {
+      return maxRounds > 0 && maxRounds <= round;
+    }
+
+    public boolean isFirstRound() {
+      return round == 1;
+    }
+  }
+
+  BattleRound getBattleRoundState();
 
   Territory getBattleSite();
 
+  Collection<TerritoryEffect> getTerritoryEffects();
+
+  @ChangeOnNextMajorRelease("Use a BattleId class instead of UUID")
   UUID getBattleId();
 
   Collection<Unit> getUnits(Side... sides);
@@ -35,6 +55,8 @@ public interface BattleState {
 
   Collection<Unit> getBombardingUnits();
 
+  Collection<Unit> getAmphibiousLandAttackers();
+
   GamePlayer getAttacker();
 
   GamePlayer getDefender();
@@ -45,9 +67,9 @@ public interface BattleState {
 
   boolean isOver();
 
-  Collection<Territory> getAttackerRetreatTerritories();
+  boolean isHeadless();
 
-  Collection<Territory> getEmptyOrFriendlySeaNeighbors(Collection<Unit> units);
+  Collection<Territory> getAttackerRetreatTerritories();
 
   Collection<Unit> getDependentUnits(Collection<Unit> units);
 }
