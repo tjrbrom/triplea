@@ -1,5 +1,6 @@
 package games.strategy.triplea.delegate.battle;
 
+import static games.strategy.triplea.delegate.battle.BattleState.Side.OFFENSE;
 import static org.mockito.Mockito.mock;
 
 import games.strategy.engine.data.GameData;
@@ -9,8 +10,10 @@ import games.strategy.engine.data.TerritoryEffect;
 import games.strategy.engine.data.Unit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
@@ -37,10 +40,8 @@ public class FakeBattleState implements BattleState {
   @Getter(onMethod = @__({@Override}))
   final @NonNull Collection<TerritoryEffect> territoryEffects;
 
-  @Getter(onMethod = @__({@Override}))
   final @NonNull GamePlayer attacker;
 
-  @Getter(onMethod = @__({@Override}))
   final @NonNull GamePlayer defender;
 
   final @NonNull Collection<Unit> attackingUnits;
@@ -55,19 +56,17 @@ public class FakeBattleState implements BattleState {
 
   final @NonNull Collection<Unit> defendingAa;
 
-  @Getter(onMethod = @__({@Override}))
-  final Collection<Unit> amphibiousLandAttackers;
+  final @NonNull Collection<Unit> killed;
+
+  final @NonNull Collection<Unit> retreatUnits;
 
   @Getter(onMethod = @__({@Override}))
   final @NonNull GameData gameData;
 
-  @Getter(onMethod = @__({@Override}))
   final boolean amphibious;
 
-  @Getter(onMethod = @__({@Override}))
   final boolean over;
 
-  @Getter(onMethod = @__({@Override}))
   final boolean headless;
 
   @Getter(onMethod = @__({@Override}))
@@ -84,12 +83,46 @@ public class FakeBattleState implements BattleState {
   }
 
   @Override
-  public BattleRound getBattleRoundState() {
-    return BattleRound.of(battleRound, maxBattleRounds);
+  public Collection<Unit> getTransportDependents(final Collection<Unit> units) {
+    return new ArrayList<>();
   }
 
   @Override
-  public Collection<Unit> getUnits(final Side... sides) {
+  public Collection<IBattle> getDependentBattles() {
+    return new ArrayList<>();
+  }
+
+  @Override
+  public BattleStatus getStatus() {
+    return BattleStatus.of(battleRound, maxBattleRounds, over, amphibious, headless);
+  }
+
+  @Override
+  public GamePlayer getPlayer(final Side side) {
+    return side == OFFENSE ? attacker : defender;
+  }
+
+  @Override
+  public Collection<Unit> filterUnits(final UnitBattleFilter filter, final Side... sides) {
+    return filter.getFilter().stream()
+        .flatMap(status -> getUnits(status, sides).stream())
+        .collect(Collectors.toList());
+  }
+
+  private Collection<Unit> getUnits(final UnitBattleStatus status, final Side... sides) {
+    switch (status) {
+      case ALIVE:
+        return Collections.unmodifiableCollection(getUnits(sides));
+      case CASUALTY:
+        return Collections.unmodifiableCollection(getWaitingToDie(sides));
+      case REMOVED_CASUALTY:
+        return Collections.unmodifiableCollection(killed);
+      default:
+        return List.of();
+    }
+  }
+
+  private Collection<Unit> getUnits(final Side... sides) {
     final Collection<Unit> units = new ArrayList<>();
     for (final Side side : sides) {
       switch (side) {
@@ -106,8 +139,7 @@ public class FakeBattleState implements BattleState {
     return units;
   }
 
-  @Override
-  public Collection<Unit> getWaitingToDie(final Side... sides) {
+  private Collection<Unit> getWaitingToDie(final Side... sides) {
     final Collection<Unit> waitingToDie = new ArrayList<>();
     for (final Side side : sides) {
       switch (side) {
@@ -138,6 +170,11 @@ public class FakeBattleState implements BattleState {
           break;
       }
     }
+  }
+
+  @Override
+  public void retreatUnits(final Side side, final Collection<Unit> units) {
+    retreatUnits.addAll(units);
   }
 
   @Override
@@ -174,7 +211,8 @@ public class FakeBattleState implements BattleState {
         .defendingAa(List.of())
         .bombardingUnits(List.of())
         .dependentUnits(List.of())
-        .amphibiousLandAttackers(List.of())
+        .killed(List.of())
+        .retreatUnits(new ArrayList<>())
         .gameData(mock(GameData.class))
         .amphibious(false)
         .over(false)

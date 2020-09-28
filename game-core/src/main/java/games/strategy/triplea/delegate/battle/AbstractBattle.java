@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import org.triplea.java.RemoveOnNextMajorRelease;
 import org.triplea.java.collections.CollectionUtils;
 import org.triplea.java.collections.IntegerMap;
 
@@ -38,7 +39,7 @@ abstract class AbstractBattle implements IBattle {
    * In headless mode we should NOT access any Delegates. In headless mode we are just being used to
    * calculate results for an odds calculator so we can skip some steps for efficiency.
    */
-  @Getter boolean headless = false;
+  boolean headless = false;
 
   @Getter final Territory battleSite;
   final GamePlayer attacker;
@@ -57,7 +58,10 @@ abstract class AbstractBattle implements IBattle {
 
   List<Unit> attackingUnits = new ArrayList<>();
   List<Unit> defendingUnits = new ArrayList<>();
-  List<Unit> amphibiousLandAttackers = new ArrayList<>();
+
+  @RemoveOnNextMajorRelease("amphibiousLandAttackers is no longer used")
+  List<Unit> amphibiousLandAttackers = List.of();
+
   List<Unit> bombardingUnits = new ArrayList<>();
   @Getter Collection<TerritoryEffect> territoryEffects;
   BattleResultDescription battleResultDescription;
@@ -136,7 +140,7 @@ abstract class AbstractBattle implements IBattle {
   }
 
   /** Figure out what units a transport is transporting and has to unloaded. */
-  Collection<Unit> getTransportDependents(final Collection<Unit> targets) {
+  public Collection<Unit> getTransportDependents(final Collection<Unit> targets) {
     if (headless) {
       return List.of();
     } else if (targets.stream().noneMatch(Matches.unitCanTransport())) {
@@ -176,11 +180,6 @@ abstract class AbstractBattle implements IBattle {
   @Override
   public boolean isAmphibious() {
     return isAmphibious;
-  }
-
-  @Override
-  public Collection<Unit> getAmphibiousLandAttackers() {
-    return Collections.unmodifiableCollection(amphibiousLandAttackers);
   }
 
   @Override
