@@ -29,6 +29,7 @@ import games.strategy.triplea.attachments.TechAttachment;
 import games.strategy.triplea.attachments.UnitAttachment;
 import games.strategy.triplea.delegate.battle.IBattle;
 import games.strategy.triplea.delegate.battle.StrategicBombingRaidBattle;
+import games.strategy.triplea.delegate.dice.TotalPowerAndTotalRolls;
 import games.strategy.triplea.xml.TestMapGameData;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -63,19 +64,23 @@ class DiceRollTest {
         .thenAnswer(withValues(1)); // infantry attack does not hit at 1 (0 based)
     // infantry defends
     final DiceRoll roll =
-        DiceRoll.rollDice(infantry, true, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, true, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll.getHits(), is(1));
     // infantry
     final DiceRoll roll2 =
-        DiceRoll.rollDice(infantry, true, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, true, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll2.getHits(), is(0));
     // infantry attacks
     final DiceRoll roll3 =
-        DiceRoll.rollDice(infantry, false, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, false, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll3.getHits(), is(1));
     // infantry attack
     final DiceRoll roll4 =
-        DiceRoll.rollDice(infantry, false, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, false, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll4.getHits(), is(0));
   }
 
@@ -97,19 +102,23 @@ class DiceRollTest {
         .thenAnswer(withValues(1)); // infantry attack does not hit at 1 (0 based)
     // infantry defends
     final DiceRoll roll =
-        DiceRoll.rollDice(infantry, true, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, true, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll.getHits(), is(1));
     // infantry
     final DiceRoll roll2 =
-        DiceRoll.rollDice(infantry, true, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, true, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll2.getHits(), is(0));
     // infantry attacks
     final DiceRoll roll3 =
-        DiceRoll.rollDice(infantry, false, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, false, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll3.getHits(), is(1));
     // infantry attack
     final DiceRoll roll4 =
-        DiceRoll.rollDice(infantry, false, russians, bridge, battle, territoryEffects);
+        DiceRoll.rollDice(
+            infantry, false, russians, bridge, battle.getTerritory(), territoryEffects);
     assertThat(roll4.getHits(), is(0));
   }
 
@@ -128,7 +137,12 @@ class DiceRollTest {
     whenGetRandom(bridge).thenAnswer(withValues(1, 1));
     final DiceRoll roll =
         DiceRoll.rollDice(
-            units, false, russians, bridge, battle, TerritoryEffectHelper.getEffects(westRussia));
+            units,
+            false,
+            russians,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(westRussia));
     assertThat(roll.getHits(), is(2));
   }
 
@@ -154,7 +168,12 @@ class DiceRollTest {
     whenGetRandom(bridge).thenAnswer(withValues(1, 1, 1));
     final DiceRoll roll =
         DiceRoll.rollDice(
-            units, false, russians, bridge, battle, TerritoryEffectHelper.getEffects(westRussia));
+            units,
+            false,
+            russians,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(westRussia));
     assertThat(roll.getHits(), is(3));
   }
 
@@ -170,7 +189,12 @@ class DiceRollTest {
     // 3 infantry on defense should produce exactly one hit, without rolling the dice
     final DiceRoll roll =
         DiceRoll.rollDice(
-            units, true, russians, bridge, battle, TerritoryEffectHelper.getEffects(westRussia));
+            units,
+            true,
+            russians,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(westRussia));
     assertThat(roll.getHits(), is(1));
     thenGetRandomShouldHaveBeenCalled(bridge, never());
   }
@@ -200,7 +224,12 @@ class DiceRollTest {
     when(battle.isAmphibious()).thenReturn(true);
     final DiceRoll roll =
         DiceRoll.rollDice(
-            attackers, false, americans, bridge, battle, TerritoryEffectHelper.getEffects(algeria));
+            attackers,
+            false,
+            americans,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(algeria));
     assertThat(roll.getHits(), is(1));
   }
 
@@ -229,7 +258,12 @@ class DiceRollTest {
     when(battle.isAmphibious()).thenReturn(true);
     final DiceRoll roll =
         DiceRoll.rollDice(
-            attackers, false, americans, bridge, battle, TerritoryEffectHelper.getEffects(algeria));
+            attackers,
+            false,
+            americans,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(algeria));
     assertThat(roll.getHits(), is(1));
     thenGetRandomShouldHaveBeenCalled(bridge, never());
   }
@@ -258,7 +292,12 @@ class DiceRollTest {
     final IBattle battle = mock(IBattle.class);
     final DiceRoll roll =
         DiceRoll.rollDice(
-            attackers, false, americans, bridge, battle, TerritoryEffectHelper.getEffects(algeria));
+            attackers,
+            false,
+            americans,
+            bridge,
+            battle.getTerritory(),
+            TerritoryEffectHelper.getEffects(algeria));
     assertThat(roll.getHits(), is(0));
   }
 
@@ -544,7 +583,7 @@ class DiceRollTest {
             false,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
     assertThat(dice.getRolls(4).get(0).getType(), is(Die.DieType.HIT));
     assertThat(dice.getRolls(4).get(1).getType(), is(Die.DieType.HIT));
@@ -573,7 +612,7 @@ class DiceRollTest {
             true,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
     assertThat(dice.getRolls(1).size(), is(1));
     assertThat(dice.getRolls(1).get(0).getType(), is(Die.DieType.HIT));
@@ -598,7 +637,7 @@ class DiceRollTest {
             true,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
 
     assertThat(dice.getRolls(1).size(), is(1));
@@ -628,7 +667,7 @@ class DiceRollTest {
             false,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
 
     assertThat(dice.getRolls(4).get(0).getType(), is(Die.DieType.HIT));
@@ -659,7 +698,7 @@ class DiceRollTest {
             false,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
     assertThat(dice.getRolls(4).get(0).getType(), is(Die.DieType.HIT));
     assertThat(dice.getRolls(4).get(1).getType(), is(Die.DieType.IGNORED));
@@ -689,7 +728,7 @@ class DiceRollTest {
             true,
             british,
             testDelegateBridge,
-            mock(IBattle.class),
+            mock(Territory.class),
             TerritoryEffectHelper.getEffects(germany));
     assertThat(dice.getRolls(1).size(), is(2));
     assertThat(dice.getHits(), is(1));
@@ -734,8 +773,8 @@ class DiceRollTest {
     attackers.addAll(GameDataTestUtil.germanInfantry(twwGameData).create(1, germans));
     attackers.addAll(GameDataTestUtil.germanArtillery(twwGameData).create(1, germans));
     int attackPower =
-        DiceRoll.getTotalPower(
-            DiceRoll.getUnitPowerAndRollsForNormalBattles(
+        TotalPowerAndTotalRolls.getTotalPower(
+            TotalPowerAndTotalRolls.getUnitPowerAndRollsForNormalBattles(
                 attackers,
                 new ArrayList<>(),
                 attackers,
@@ -748,8 +787,8 @@ class DiceRollTest {
 
     attackers.addAll(GameDataTestUtil.germanArtillery(twwGameData).create(1, germans));
     attackPower =
-        DiceRoll.getTotalPower(
-            DiceRoll.getUnitPowerAndRollsForNormalBattles(
+        TotalPowerAndTotalRolls.getTotalPower(
+            TotalPowerAndTotalRolls.getUnitPowerAndRollsForNormalBattles(
                 attackers,
                 new ArrayList<>(),
                 attackers,
@@ -765,8 +804,8 @@ class DiceRollTest {
 
     attackers.addAll(GameDataTestUtil.germanArtillery(twwGameData).create(1, germans));
     attackPower =
-        DiceRoll.getTotalPower(
-            DiceRoll.getUnitPowerAndRollsForNormalBattles(
+        TotalPowerAndTotalRolls.getTotalPower(
+            TotalPowerAndTotalRolls.getUnitPowerAndRollsForNormalBattles(
                 attackers,
                 new ArrayList<>(),
                 attackers,
@@ -816,7 +855,7 @@ class DiceRollTest {
         when(unitAttachment.getOffensiveAttackAa(any())).thenReturn(index / 2);
         index--;
       }
-      DiceRoll.sortAaHighToLow(units, gameData, false, new HashMap<>());
+      TotalPowerAndTotalRolls.sortAaHighToLow(units, gameData, false, new HashMap<>());
       assertThat(units.get(0), is(unit1));
       assertThat(units.get(1), is(unit2));
       assertThat(units.get(2), is(unit3));
@@ -834,7 +873,7 @@ class DiceRollTest {
         when(unitAttachment.getAttackAa(any())).thenReturn(index / 2);
         index++;
       }
-      DiceRoll.sortAaHighToLow(units, gameData, true, new HashMap<>());
+      TotalPowerAndTotalRolls.sortAaHighToLow(units, gameData, true, new HashMap<>());
       assertThat(units.get(0), is(unit5));
       assertThat(units.get(1), is(unit3));
       assertThat(units.get(2), is(unit4));
