@@ -6,8 +6,10 @@ import static org.hamcrest.core.Is.is;
 
 import games.strategy.engine.data.MutableProperty;
 import games.strategy.engine.data.Unit;
+import games.strategy.triplea.Properties;
 import games.strategy.triplea.delegate.ImprovedArtillerySupportAdvance;
-import games.strategy.triplea.delegate.battle.UnitBattleComparator.CombatModifiers;
+import games.strategy.triplea.delegate.battle.BattleState;
+import games.strategy.triplea.delegate.power.calculator.CombatValueBuilder;
 import games.strategy.triplea.xml.TestDataBigWorld1942V3;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,10 +63,18 @@ class CasualtyOrderOfLossesTestOnBigWorldV3 {
         });
     return CasualtyOrderOfLosses.Parameters.builder()
         .targetsToPickFrom(amphibUnits)
-        .combatModifiers(
-            CombatModifiers.builder().defending(false).territoryEffects(List.of()).build())
         .player(testData.british)
-        .enemyUnits(List.of())
+        .combatValue(
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(amphibUnits)
+                .side(BattleState.Side.OFFENSE)
+                .gameSequence(testData.gameData.getSequence())
+                .supportAttachments(testData.gameData.getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(testData.gameData.getProperties()))
+                .gameDiceSides(testData.gameData.getDiceSides())
+                .territoryEffects(List.of())
+                .build())
         .battlesite(testData.france)
         .costs(testData.costMap)
         .data(testData.gameData)
@@ -189,10 +199,19 @@ class CasualtyOrderOfLossesTestOnBigWorldV3 {
         CasualtyOrderOfLosses.sortUnitsForCasualtiesWithSupport(
             CasualtyOrderOfLosses.Parameters.builder()
                 .targetsToPickFrom(attackingUnits)
-                .combatModifiers(
-                    CombatModifiers.builder().defending(false).territoryEffects(List.of()).build())
                 .player(testData.british)
-                .enemyUnits(List.of())
+                .combatValue(
+                    CombatValueBuilder.mainCombatValue()
+                        .enemyUnits(List.of())
+                        .friendlyUnits(attackingUnits)
+                        .side(BattleState.Side.OFFENSE)
+                        .gameSequence(testData.gameData.getSequence())
+                        .supportAttachments(testData.gameData.getUnitTypeList().getSupportRules())
+                        .lhtrHeavyBombers(
+                            Properties.getLhtrHeavyBombers(testData.gameData.getProperties()))
+                        .gameDiceSides(testData.gameData.getDiceSides())
+                        .territoryEffects(List.of())
+                        .build())
                 .battlesite(testData.france)
                 .costs(testData.costMap)
                 .data(testData.gameData)
@@ -237,10 +256,19 @@ class CasualtyOrderOfLossesTestOnBigWorldV3 {
         CasualtyOrderOfLosses.sortUnitsForCasualtiesWithSupport(
             CasualtyOrderOfLosses.Parameters.builder()
                 .targetsToPickFrom(attackingUnits)
-                .combatModifiers(
-                    CombatModifiers.builder().defending(false).territoryEffects(List.of()).build())
                 .player(testData.british)
-                .enemyUnits(List.of())
+                .combatValue(
+                    CombatValueBuilder.mainCombatValue()
+                        .enemyUnits(List.of())
+                        .friendlyUnits(attackingUnits)
+                        .side(BattleState.Side.OFFENSE)
+                        .gameSequence(testData.gameData.getSequence())
+                        .supportAttachments(testData.gameData.getUnitTypeList().getSupportRules())
+                        .lhtrHeavyBombers(
+                            Properties.getLhtrHeavyBombers(testData.gameData.getProperties()))
+                        .gameDiceSides(testData.gameData.getDiceSides())
+                        .territoryEffects(List.of())
+                        .build())
                 .battlesite(testData.france)
                 .costs(testData.costMap)
                 .data(testData.gameData)
@@ -256,10 +284,19 @@ class CasualtyOrderOfLossesTestOnBigWorldV3 {
         CasualtyOrderOfLosses.sortUnitsForCasualtiesWithSupport(
             CasualtyOrderOfLosses.Parameters.builder()
                 .targetsToPickFrom(attackingUnits.subList(0, 3))
-                .combatModifiers(
-                    CombatModifiers.builder().defending(false).territoryEffects(List.of()).build())
                 .player(testData.british)
-                .enemyUnits(List.of())
+                .combatValue(
+                    CombatValueBuilder.mainCombatValue()
+                        .enemyUnits(List.of())
+                        .friendlyUnits(attackingUnits.subList(0, 3))
+                        .side(BattleState.Side.OFFENSE)
+                        .gameSequence(testData.gameData.getSequence())
+                        .supportAttachments(testData.gameData.getUnitTypeList().getSupportRules())
+                        .lhtrHeavyBombers(
+                            Properties.getLhtrHeavyBombers(testData.gameData.getProperties()))
+                        .gameDiceSides(testData.gameData.getDiceSides())
+                        .territoryEffects(List.of())
+                        .build())
                 .battlesite(testData.france)
                 .costs(testData.costMap)
                 .data(testData.gameData)

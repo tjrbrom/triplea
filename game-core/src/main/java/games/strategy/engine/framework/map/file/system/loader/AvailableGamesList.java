@@ -9,6 +9,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 
+/**
+ * Data structure for the list of available games, games that a player has downloaded or installed
+ * onto their hard drive.
+ */
 @AllArgsConstructor
 public class AvailableGamesList {
   private final Set<DefaultGameChooserEntry> availableGames;
@@ -18,6 +22,10 @@ public class AvailableGamesList {
         .map(DefaultGameChooserEntry::getGameName)
         .sorted(Comparator.comparing(String::toUpperCase))
         .collect(Collectors.toList());
+  }
+
+  public List<DefaultGameChooserEntry> getSortedGameEntries() {
+    return availableGames.stream().sorted().collect(Collectors.toList());
   }
 
   public boolean hasGame(final String gameName) {

@@ -17,8 +17,6 @@ import games.strategy.triplea.delegate.battle.steps.change.suicide.RemoveGeneral
 import games.strategy.triplea.delegate.battle.steps.fire.NavalBombardment;
 import games.strategy.triplea.delegate.battle.steps.fire.aa.DefensiveAaFire;
 import games.strategy.triplea.delegate.battle.steps.fire.aa.OffensiveAaFire;
-import games.strategy.triplea.delegate.battle.steps.fire.air.AirAttackVsNonSubsStep;
-import games.strategy.triplea.delegate.battle.steps.fire.air.AirDefendVsNonSubsStep;
 import games.strategy.triplea.delegate.battle.steps.fire.firststrike.ClearFirstStrikeCasualties;
 import games.strategy.triplea.delegate.battle.steps.fire.firststrike.DefensiveFirstStrike;
 import games.strategy.triplea.delegate.battle.steps.fire.firststrike.OffensiveFirstStrike;
@@ -68,13 +66,16 @@ public interface BattleStep extends IExecutable {
     GENERAL_DEFENSIVE,
     GENERAL_REMOVE_CASUALTIES,
     SUICIDE_REMOVE_CASUALTIES,
-
     REMOVE_UNPROTECTED_UNITS_GENERAL,
     GENERAL_BATTLE_END_CHECK,
     SUB_OFFENSIVE_RETREAT_AFTER_BATTLE,
     OFFENSIVE_GENERAL_RETREAT,
     STALEMATE_BATTLE_END_CHECK,
     SUB_DEFENSIVE_RETREAT_AFTER_BATTLE,
+
+    FIRE_ROUND_ROLL_DICE,
+    FIRE_ROUND_SELECT_CASUALTIES,
+    FIRE_ROUND_REMOVE_CASUALTIES,
   }
 
   /** @return a list of names that will be shown in {@link games.strategy.triplea.ui.BattlePanel} */
@@ -89,8 +90,6 @@ public interface BattleStep extends IExecutable {
         new DefensiveAaFire(battleState, battleActions),
         new SubmergeSubsVsOnlyAirStep(battleState, battleActions),
         new RemoveUnprotectedUnits(battleState, battleActions),
-        new AirAttackVsNonSubsStep(battleState),
-        new AirDefendVsNonSubsStep(battleState),
         new NavalBombardment(battleState, battleActions),
         new LandParatroopers(battleState, battleActions),
         new OffensiveSubsRetreat(battleState, battleActions),

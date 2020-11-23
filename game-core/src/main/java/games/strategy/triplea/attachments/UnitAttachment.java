@@ -42,6 +42,22 @@ import org.triplea.util.Tuple;
 public class UnitAttachment extends DefaultAttachment {
   public static final String UNITSMAYNOTLANDONCARRIER = "unitsMayNotLandOnCarrier";
   public static final String UNITSMAYNOTLEAVEALLIEDCARRIER = "unitsMayNotLeaveAlliedCarrier";
+
+  public static final String IS_SEA = "isSea";
+  public static final String DEFENSE_STRENGTH = "defense";
+  public static final String ATTACK_STRENGTH = "attack";
+  public static final String ATTACK_ROLL = "attackRolls";
+  public static final String DEFENSE_ROLL = "defenseRolls";
+  public static final String ATTACK_AA = "attackAA";
+  public static final String OFFENSIVE_ATTACK_AA = "offensiveAttackAA";
+  public static final String MAX_AA_ATTACKS = "maxAAattacks";
+  public static final String ATTACK_AA_MAX_DIE_SIDES = "attackAAmaxDieSides";
+  public static final String OFFENSIVE_ATTACK_AA_MAX_DIE_SIDES = "offensiveAttackAAmaxDieSides";
+  public static final String MAY_OVERSTACK_AA = "mayOverStackAA";
+  public static final String IS_MARINE = "isMarine";
+  public static final String BOMBARD = "bombard";
+  public static final String CHOOSE_BEST_ROLL = "chooseBestRoll";
+
   private static final long serialVersionUID = -2946748686268541820L;
 
   // movement related
@@ -320,7 +336,8 @@ public class UnitAttachment extends DefaultAttachment {
     airDefense = getInt(value);
   }
 
-  private void setAirDefense(final Integer value) {
+  @VisibleForTesting
+  public void setAirDefense(final Integer value) {
     airDefense = value;
   }
 
@@ -346,7 +363,8 @@ public class UnitAttachment extends DefaultAttachment {
     airAttack = getInt(value);
   }
 
-  private void setAirAttack(final Integer value) {
+  @VisibleForTesting
+  public void setAirAttack(final Integer value) {
     airAttack = value;
   }
 
@@ -664,7 +682,8 @@ public class UnitAttachment extends DefaultAttachment {
   }
 
   public boolean getCanMoveThroughEnemies() {
-    return canMoveThroughEnemies || (isSub && Properties.getSubmersibleSubs(getData()));
+    return canMoveThroughEnemies
+        || (isSub && Properties.getSubmersibleSubs(getData().getProperties()));
   }
 
   private void setCanBeMovedThroughByEnemies(final Boolean s) {
@@ -672,7 +691,8 @@ public class UnitAttachment extends DefaultAttachment {
   }
 
   public boolean getCanBeMovedThroughByEnemies() {
-    return canBeMovedThroughByEnemies || (isSub && Properties.getIgnoreSubInMovement(getData()));
+    return canBeMovedThroughByEnemies
+        || (isSub && Properties.getIgnoreSubInMovement(getData().getProperties()));
   }
 
   private void setCanNotTarget(final String value) throws GameParseException {
@@ -692,8 +712,10 @@ public class UnitAttachment extends DefaultAttachment {
     }
   }
 
-  private void setCanNotTarget(final Set<UnitType> value) {
+  @VisibleForTesting
+  public UnitAttachment setCanNotTarget(final Set<UnitType> value) {
     canNotTarget = value;
+    return this;
   }
 
   public Set<UnitType> getCanNotTarget() {
@@ -733,7 +755,7 @@ public class UnitAttachment extends DefaultAttachment {
   public Set<UnitType> getCanNotBeTargetedBy() {
     if (canNotBeTargetedBy == null) {
       canNotBeTargetedBy =
-          Properties.getAirAttackSubRestricted(getData())
+          Properties.getAirAttackSubRestricted(getData().getProperties())
               ? new HashSet<>(
                   CollectionUtils.getMatches(
                       getData().getUnitTypeList().getAllUnitTypes(), Matches.unitTypeIsAir()))
@@ -839,8 +861,10 @@ public class UnitAttachment extends DefaultAttachment {
     isSea = getBool(s);
   }
 
-  private void setIsSea(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setIsSea(final Boolean s) {
     isSea = s;
+    return this;
   }
 
   public boolean getIsSea() {
@@ -1261,8 +1285,10 @@ public class UnitAttachment extends DefaultAttachment {
     }
   }
 
-  private void setIsMarine(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setIsMarine(final Integer s) {
     isMarine = s;
+    return this;
   }
 
   public int getIsMarine() {
@@ -1458,8 +1484,9 @@ public class UnitAttachment extends DefaultAttachment {
   }
 
   @VisibleForTesting
-  public void setBombard(final int s) {
+  public UnitAttachment setBombard(final int s) {
     bombard = s;
+    return this;
   }
 
   public int getBombard() {
@@ -1494,8 +1521,10 @@ public class UnitAttachment extends DefaultAttachment {
     attack = getInt(s);
   }
 
-  private void setAttack(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setAttack(final Integer s) {
     attack = s;
+    return this;
   }
 
   int getAttack() {
@@ -1518,8 +1547,10 @@ public class UnitAttachment extends DefaultAttachment {
     attackRolls = getInt(s);
   }
 
-  private void setAttackRolls(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setAttackRolls(final Integer s) {
     attackRolls = s;
+    return this;
   }
 
   private int getAttackRolls() {
@@ -1542,8 +1573,10 @@ public class UnitAttachment extends DefaultAttachment {
     defense = getInt(s);
   }
 
-  private void setDefense(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setDefense(final Integer s) {
     defense = s;
+    return this;
   }
 
   private int getDefense() {
@@ -1556,7 +1589,7 @@ public class UnitAttachment extends DefaultAttachment {
             + TechAbilityAttachment.getDefenseBonus(
                 (UnitType) this.getAttachedTo(), player, getData());
     if (defenseValue > 0 && getIsFirstStrike() && TechTracker.hasSuperSubs(player)) {
-      final int bonus = Properties.getSuperSubDefenseBonus(getData());
+      final int bonus = Properties.getSuperSubDefenseBonus(getData().getProperties());
       defenseValue += bonus;
     }
     return Math.min(getData().getDiceSides(), Math.max(0, defenseValue));
@@ -1570,8 +1603,10 @@ public class UnitAttachment extends DefaultAttachment {
     defenseRolls = getInt(s);
   }
 
-  private void setDefenseRolls(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setDefenseRolls(final Integer s) {
     defenseRolls = s;
+    return this;
   }
 
   private int getDefenseRolls() {
@@ -1594,8 +1629,10 @@ public class UnitAttachment extends DefaultAttachment {
     chooseBestRoll = getBool(s);
   }
 
-  private void setChooseBestRoll(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setChooseBestRoll(final Boolean s) {
     chooseBestRoll = s;
+    return this;
   }
 
   public boolean getChooseBestRoll() {
@@ -1722,8 +1759,10 @@ public class UnitAttachment extends DefaultAttachment {
     isInfrastructure = getBool(s);
   }
 
-  private void setIsInfrastructure(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setIsInfrastructure(final Boolean s) {
     isInfrastructure = s;
+    return this;
   }
 
   public boolean getIsInfrastructure() {
@@ -1796,15 +1835,18 @@ public class UnitAttachment extends DefaultAttachment {
   public boolean getIsSuicideOnDefense() {
     return isSuicideOnDefense
         // Global property controlled whether isSuicide units would suicide on defense
-        || (isSuicide && !Properties.getDefendingSuicideAndMunitionUnitsDoNotFire(getData()));
+        || (isSuicide
+            && !Properties.getDefendingSuicideAndMunitionUnitsDoNotFire(getData().getProperties()));
   }
 
   private void setIsSuicideOnHit(final String s) {
     isSuicideOnHit = getBool(s);
   }
 
-  private void setIsSuicideOnHit(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setIsSuicideOnHit(final Boolean s) {
     isSuicideOnHit = s;
+    return this;
   }
 
   public boolean getIsSuicideOnHit() {
@@ -2135,8 +2177,10 @@ public class UnitAttachment extends DefaultAttachment {
     attackAa = getInt(s);
   }
 
-  private void setAttackAa(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setAttackAa(final Integer s) {
     attackAa = s;
+    return this;
   }
 
   private int getAttackAa() {
@@ -2164,8 +2208,10 @@ public class UnitAttachment extends DefaultAttachment {
     offensiveAttackAa = getInt(s);
   }
 
-  private void setOffensiveAttackAa(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setOffensiveAttackAa(final Integer s) {
     offensiveAttackAa = s;
+    return this;
   }
 
   private int getOffensiveAttackAa() {
@@ -2193,15 +2239,14 @@ public class UnitAttachment extends DefaultAttachment {
     attackAaMaxDieSides = getInt(s);
   }
 
-  private void setAttackAaMaxDieSides(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setAttackAaMaxDieSides(final Integer s) {
     attackAaMaxDieSides = s;
+    return this;
   }
 
   public int getAttackAaMaxDieSides() {
-    if (attackAaMaxDieSides < 0) {
-      return getData().getDiceSides();
-    }
-    return attackAaMaxDieSides;
+    return attackAaMaxDieSides > 0 ? attackAaMaxDieSides : getData().getDiceSides();
   }
 
   private void resetAttackAaMaxDieSides() {
@@ -2212,15 +2257,16 @@ public class UnitAttachment extends DefaultAttachment {
     offensiveAttackAaMaxDieSides = getInt(s);
   }
 
-  private void setOffensiveAttackAaMaxDieSides(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setOffensiveAttackAaMaxDieSides(final Integer s) {
     offensiveAttackAaMaxDieSides = s;
+    return this;
   }
 
   public int getOffensiveAttackAaMaxDieSides() {
-    if (offensiveAttackAaMaxDieSides < 0) {
-      return getData().getDiceSides();
-    }
-    return offensiveAttackAaMaxDieSides;
+    return offensiveAttackAaMaxDieSides > 0
+        ? offensiveAttackAaMaxDieSides
+        : getData().getDiceSides();
   }
 
   private void resetOffensiveAttackAaMaxDieSides() {
@@ -2236,8 +2282,10 @@ public class UnitAttachment extends DefaultAttachment {
     maxAaAttacks = getInt(s);
   }
 
-  private void setMaxAaAttacks(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setMaxAaAttacks(final Integer s) {
     maxAaAttacks = s;
+    return this;
   }
 
   public int getMaxAaAttacks() {
@@ -2257,8 +2305,10 @@ public class UnitAttachment extends DefaultAttachment {
     maxRoundsAa = getInt(s);
   }
 
-  private void setMaxRoundsAa(final Integer s) {
+  @VisibleForTesting
+  public UnitAttachment setMaxRoundsAa(final Integer s) {
     maxRoundsAa = s;
+    return this;
   }
 
   public int getMaxRoundsAa() {
@@ -2273,8 +2323,10 @@ public class UnitAttachment extends DefaultAttachment {
     mayOverStackAa = getBool(s);
   }
 
-  private void setMayOverStackAa(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setMayOverStackAa(final Boolean s) {
     mayOverStackAa = s;
+    return this;
   }
 
   public boolean getMayOverStackAa() {
@@ -2305,8 +2357,10 @@ public class UnitAttachment extends DefaultAttachment {
     isAaForCombatOnly = getBool(s);
   }
 
-  private void setIsAaForCombatOnly(final Boolean s) {
+  @VisibleForTesting
+  public UnitAttachment setIsAaForCombatOnly(final Boolean s) {
     isAaForCombatOnly = s;
+    return this;
   }
 
   public boolean getIsAaForCombatOnly() {
@@ -2405,8 +2459,10 @@ public class UnitAttachment extends DefaultAttachment {
     }
   }
 
-  private void setTargetsAa(final Set<UnitType> value) {
+  @VisibleForTesting
+  public UnitAttachment setTargetsAa(final Set<UnitType> value) {
     targetsAa = value;
+    return this;
   }
 
   private Set<UnitType> getTargetsAa() {
@@ -2665,9 +2721,9 @@ public class UnitAttachment extends DefaultAttachment {
     // under certain rules (classic rules) there can only be 1 aa gun in a territory.
     if (max == Integer.MAX_VALUE
         && (ua.getIsAaForBombingThisUnitOnly() || ua.getIsAaForCombatOnly())
-        && !(Properties.getWW2V2(data)
-            || Properties.getWW2V3(data)
-            || Properties.getMultipleAaPerTerritory(data))) {
+        && !(Properties.getWW2V2(data.getProperties())
+            || Properties.getWW2V3(data.getProperties())
+            || Properties.getMultipleAaPerTerritory(data.getProperties()))) {
       max = 1;
     }
     final Predicate<Unit> stackingMatch;
@@ -2750,7 +2806,7 @@ public class UnitAttachment extends DefaultAttachment {
     }
     if (isSea
         && transportCapacity != -1
-        && Properties.getTransportCasualtiesRestricted(data)
+        && Properties.getTransportCasualtiesRestricted(data.getProperties())
         && (attack > 0 || defense > 0)
         && !isCombatTransport) {
       throw new GameParseException(
@@ -3227,7 +3283,7 @@ public class UnitAttachment extends DefaultAttachment {
       sb.append("Can Rocket Attack, ");
       final int bombingBonus = getBombingBonus();
       if ((getBombingMaxDieSides() != -1 || bombingBonus != 0)
-          && Properties.getUseBombingMaxDiceSidesAndBonus(getData())) {
+          && Properties.getUseBombingMaxDiceSidesAndBonus(getData().getProperties())) {
         sb.append(bombingBonus != 0 ? bombingBonus + 1 : 1)
             .append("-")
             .append(
@@ -3250,7 +3306,8 @@ public class UnitAttachment extends DefaultAttachment {
 
     // TODO: Rework damaged description
     if (getCanBeDamaged()
-        && Properties.getDamageFromBombingDoneToUnitsInsteadOfTerritories(getData())) {
+        && Properties.getDamageFromBombingDoneToUnitsInsteadOfTerritories(
+            getData().getProperties())) {
       final StringBuilder sb = new StringBuilder();
       sb.append("Can be Damaged by Raids, ");
       if (getMaxOperationalDamage() > -1) {
@@ -3271,10 +3328,10 @@ public class UnitAttachment extends DefaultAttachment {
       tuples.add(Tuple.of("Can be Damaged by Raids", ""));
     }
 
-    if (getIsAirBase() && Properties.getScrambleRulesInEffect(getData())) {
+    if (getIsAirBase() && Properties.getScrambleRulesInEffect(getData().getProperties())) {
       tuples.add(Tuple.of("Allows Scrambling", ""));
     }
-    if (getCanScramble() && Properties.getScrambleRulesInEffect(getData())) {
+    if (getCanScramble() && Properties.getScrambleRulesInEffect(getData().getProperties())) {
       tuples.add(
           Tuple.of(
               "Scramble Range",
@@ -3345,7 +3402,7 @@ public class UnitAttachment extends DefaultAttachment {
       final StringBuilder sb = new StringBuilder();
       final int bombingBonus = getBombingBonus();
       if ((getBombingMaxDieSides() != -1 || bombingBonus != 0)
-          && Properties.getUseBombingMaxDiceSidesAndBonus(getData())) {
+          && Properties.getUseBombingMaxDiceSidesAndBonus(getData().getProperties())) {
         sb.append(bombingBonus != 0 ? bombingBonus + 1 : 1)
             .append("-")
             .append(
@@ -3407,7 +3464,8 @@ public class UnitAttachment extends DefaultAttachment {
     if (getIsSuicideOnHit()) {
       tuples.add(Tuple.of("Suicide on Hit Unit", ""));
     }
-    if (getIsAir() && (getIsKamikaze() || Properties.getKamikazeAirplanes(getData()))) {
+    if (getIsAir()
+        && (getIsKamikaze() || Properties.getKamikazeAirplanes(getData().getProperties()))) {
       tuples.add(Tuple.of("Is Kamikaze", "Can use all Movement to Attack Target"));
     }
 
@@ -3455,9 +3513,9 @@ public class UnitAttachment extends DefaultAttachment {
 
     if (getRepairsUnits() != null
         && !getRepairsUnits().isEmpty()
-        && Properties.getTwoHitPointUnitsRequireRepairFacilities(getData())
-        && (Properties.getBattleshipsRepairAtBeginningOfRound(getData())
-            || Properties.getBattleshipsRepairAtEndOfRound(getData()))) {
+        && Properties.getTwoHitPointUnitsRequireRepairFacilities(getData().getProperties())
+        && (Properties.getBattleshipsRepairAtBeginningOfRound(getData().getProperties())
+            || Properties.getBattleshipsRepairAtEndOfRound(getData().getProperties()))) {
       if (getRepairsUnits().size() <= 4) {
         tuples.add(
             Tuple.of(
@@ -3470,7 +3528,7 @@ public class UnitAttachment extends DefaultAttachment {
 
     if (getGivesMovement() != null
         && getGivesMovement().totalValues() > 0
-        && Properties.getUnitsMayGiveBonusMovement(getData())) {
+        && Properties.getUnitsMayGiveBonusMovement(getData().getProperties())) {
       if (getGivesMovement().size() <= 4) {
         tuples.add(
             Tuple.of(
@@ -3498,7 +3556,7 @@ public class UnitAttachment extends DefaultAttachment {
 
     if (getRequiresUnits() != null
         && !getRequiresUnits().isEmpty()
-        && Properties.getUnitPlacementRestrictions(getData())) {
+        && Properties.getUnitPlacementRestrictions(getData().getProperties())) {
       final List<String> totalUnitsListed = new ArrayList<>();
       for (final String[] list : getRequiresUnits()) {
         totalUnitsListed.addAll(List.of(list));
@@ -3523,7 +3581,7 @@ public class UnitAttachment extends DefaultAttachment {
     }
 
     if (getUnitPlacementRestrictions() != null
-        && Properties.getUnitPlacementRestrictions(getData())) {
+        && Properties.getUnitPlacementRestrictions(getData().getProperties())) {
       if (getUnitPlacementRestrictions().length > 4) {
         tuples.add(Tuple.of("Has Placement Restrictions", ""));
       } else {
@@ -3532,7 +3590,7 @@ public class UnitAttachment extends DefaultAttachment {
       }
     }
     if (getCanOnlyBePlacedInTerritoryValuedAtX() > 0
-        && Properties.getUnitPlacementRestrictions(getData())) {
+        && Properties.getUnitPlacementRestrictions(getData().getProperties())) {
       tuples.add(
           Tuple.of(
               "Must be Placed in Territory with Value of at Least",
@@ -3546,9 +3604,9 @@ public class UnitAttachment extends DefaultAttachment {
     if (getMovementLimit() != null) {
       if (getMovementLimit().getFirst() == Integer.MAX_VALUE
           && (getIsAaForBombingThisUnitOnly() || getIsAaForCombatOnly())
-          && !(Properties.getWW2V2(getData())
-              || Properties.getWW2V3(getData())
-              || Properties.getMultipleAaPerTerritory(getData()))) {
+          && !(Properties.getWW2V2(getData().getProperties())
+              || Properties.getWW2V3(getData().getProperties())
+              || Properties.getMultipleAaPerTerritory(getData().getProperties()))) {
         tuples.add(
             Tuple.of("Max " + getMovementLimit().getSecond() + " Units Moving per Territory", "1"));
       } else if (getMovementLimit().getFirst() < 10000) {
@@ -3562,9 +3620,9 @@ public class UnitAttachment extends DefaultAttachment {
     if (getAttackingLimit() != null) {
       if (getAttackingLimit().getFirst() == Integer.MAX_VALUE
           && (getIsAaForBombingThisUnitOnly() || getIsAaForCombatOnly())
-          && !(Properties.getWW2V2(getData())
-              || Properties.getWW2V3(getData())
-              || Properties.getMultipleAaPerTerritory(getData()))) {
+          && !(Properties.getWW2V2(getData().getProperties())
+              || Properties.getWW2V3(getData().getProperties())
+              || Properties.getMultipleAaPerTerritory(getData().getProperties()))) {
         tuples.add(
             Tuple.of(
                 "Max " + getAttackingLimit().getSecond() + " Units Attacking per Territory", "1"));
@@ -3579,9 +3637,9 @@ public class UnitAttachment extends DefaultAttachment {
     if (getPlacementLimit() != null) {
       if (getPlacementLimit().getFirst() == Integer.MAX_VALUE
           && (getIsAaForBombingThisUnitOnly() || getIsAaForCombatOnly())
-          && !(Properties.getWW2V2(getData())
-              || Properties.getWW2V3(getData())
-              || Properties.getMultipleAaPerTerritory(getData()))) {
+          && !(Properties.getWW2V2(getData().getProperties())
+              || Properties.getWW2V3(getData().getProperties())
+              || Properties.getMultipleAaPerTerritory(getData().getProperties()))) {
         tuples.add(
             Tuple.of(
                 "Max " + getPlacementLimit().getSecond() + " Units Placed per Territory", "1"));
@@ -3662,11 +3720,11 @@ public class UnitAttachment extends DefaultAttachment {
   private String getAaKey() {
     if (getIsAaForCombatOnly()
         && getIsAaForFlyOverOnly()
-        && !Properties.getAaTerritoryRestricted(getData())) {
+        && !Properties.getAaTerritoryRestricted(getData().getProperties())) {
       return " for Combat & Move Through";
     } else if (getIsAaForBombingThisUnitOnly()
         && getIsAaForFlyOverOnly()
-        && !Properties.getAaTerritoryRestricted(getData())) {
+        && !Properties.getAaTerritoryRestricted(getData().getProperties())) {
       return " for Raids & Move Through";
     } else if (getIsAaForCombatOnly()) {
       return " for Combat";
@@ -3691,7 +3749,7 @@ public class UnitAttachment extends DefaultAttachment {
             "isAir",
             MutableProperty.of(this::setIsAir, this::setIsAir, this::getIsAir, this::resetIsAir))
         .put(
-            "isSea",
+            IS_SEA,
             MutableProperty.of(this::setIsSea, this::setIsSea, this::getIsSea, this::resetIsSea))
         .put(
             "movement",
@@ -3741,11 +3799,11 @@ public class UnitAttachment extends DefaultAttachment {
                 this::getMovementLimit,
                 this::resetMovementLimit))
         .put(
-            "attack",
+            ATTACK_STRENGTH,
             MutableProperty.of(
                 this::setAttack, this::setAttack, this::getAttack, this::resetAttack))
         .put(
-            "defense",
+            DEFENSE_STRENGTH,
             MutableProperty.of(
                 this::setDefense, this::setDefense, this::getDefense, this::resetDefense))
         .put(
@@ -3763,7 +3821,7 @@ public class UnitAttachment extends DefaultAttachment {
                 this::getCanBombard,
                 this::resetCanBombard))
         .put(
-            "bombard",
+            BOMBARD,
             MutableProperty.ofMapper(
                 DefaultAttachment::getInt, this::setBombard, this::getBombard, () -> -1))
         .put("isSub", MutableProperty.<Boolean>ofWriteOnly(this::setIsSub, this::setIsSub))
@@ -3832,7 +3890,7 @@ public class UnitAttachment extends DefaultAttachment {
                 this::getUnitSupportCount,
                 this::resetUnitSupportCount))
         .put(
-            "isMarine",
+            IS_MARINE,
             MutableProperty.of(
                 this::setIsMarine, this::setIsMarine, this::getIsMarine, this::resetIsMarine))
         .put(
@@ -3868,21 +3926,21 @@ public class UnitAttachment extends DefaultAttachment {
                 this::getAttackingLimit,
                 this::resetAttackingLimit))
         .put(
-            "attackRolls",
+            ATTACK_ROLL,
             MutableProperty.of(
                 this::setAttackRolls,
                 this::setAttackRolls,
                 this::getAttackRolls,
                 this::resetAttackRolls))
         .put(
-            "defenseRolls",
+            DEFENSE_ROLL,
             MutableProperty.of(
                 this::setDefenseRolls,
                 this::setDefenseRolls,
                 this::getDefenseRolls,
                 this::resetDefenseRolls))
         .put(
-            "chooseBestRoll",
+            CHOOSE_BEST_ROLL,
             MutableProperty.of(
                 this::setChooseBestRoll,
                 this::setChooseBestRoll,
@@ -3977,32 +4035,32 @@ public class UnitAttachment extends DefaultAttachment {
             MutableProperty.of(
                 this::setIsRocket, this::setIsRocket, this::getIsRocket, this::resetIsRocket))
         .put(
-            "attackAA",
+            ATTACK_AA,
             MutableProperty.of(
                 this::setAttackAa, this::setAttackAa, this::getAttackAa, this::resetAttackAa))
         .put(
-            "offensiveAttackAA",
+            OFFENSIVE_ATTACK_AA,
             MutableProperty.of(
                 this::setOffensiveAttackAa,
                 this::setOffensiveAttackAa,
                 this::getOffensiveAttackAa,
                 this::resetOffensiveAttackAa))
         .put(
-            "attackAAmaxDieSides",
+            ATTACK_AA_MAX_DIE_SIDES,
             MutableProperty.of(
                 this::setAttackAaMaxDieSides,
                 this::setAttackAaMaxDieSides,
                 this::getAttackAaMaxDieSides,
                 this::resetAttackAaMaxDieSides))
         .put(
-            "offensiveAttackAAmaxDieSides",
+            OFFENSIVE_ATTACK_AA_MAX_DIE_SIDES,
             MutableProperty.of(
                 this::setOffensiveAttackAaMaxDieSides,
                 this::setOffensiveAttackAaMaxDieSides,
                 this::getOffensiveAttackAaMaxDieSides,
                 this::resetOffensiveAttackAaMaxDieSides))
         .put(
-            "maxAAattacks",
+            MAX_AA_ATTACKS,
             MutableProperty.of(
                 this::setMaxAaAttacks,
                 this::setMaxAaAttacks,
@@ -4022,7 +4080,7 @@ public class UnitAttachment extends DefaultAttachment {
             MutableProperty.of(
                 this::setTargetsAa, this::setTargetsAa, this::getTargetsAa, this::resetTargetsAa))
         .put(
-            "mayOverStackAA",
+            MAY_OVERSTACK_AA,
             MutableProperty.of(
                 this::setMayOverStackAa,
                 this::setMayOverStackAa,

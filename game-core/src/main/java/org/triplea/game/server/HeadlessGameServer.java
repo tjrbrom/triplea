@@ -1,7 +1,6 @@
 package org.triplea.game.server;
 
 import static games.strategy.engine.framework.CliProperties.LOBBY_GAME_COMMENTS;
-import static games.strategy.engine.framework.CliProperties.LOBBY_GAME_SUPPORT_PASSWORD;
 import static games.strategy.engine.framework.CliProperties.LOBBY_URI;
 import static games.strategy.engine.framework.CliProperties.MAP_FOLDER;
 import static games.strategy.engine.framework.CliProperties.TRIPLEA_GAME;
@@ -24,7 +23,6 @@ import games.strategy.engine.framework.startup.mc.ServerModel;
 import games.strategy.engine.framework.startup.ui.panels.main.game.selector.GameSelectorModel;
 import games.strategy.triplea.settings.ClientSetting;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.Optional;
@@ -115,13 +113,8 @@ public class HeadlessGameServer {
     Preconditions.checkArgument(
         file.exists(), "File must exist to load it: " + file.getAbsolutePath());
     // don't change mid-game
-    if (setupPanelModel.getPanel() != null && game == null) {
-      try {
-        gameSelectorModel.load(file);
-        log.info("Changed to save: " + file.getName());
-      } catch (final Exception e) {
-        log.log(Level.SEVERE, "Error loading game file: " + file.getAbsolutePath(), e);
-      }
+    if (setupPanelModel.getPanel() != null && game == null && gameSelectorModel.load(file)) {
+      log.info("Changed to save: " + file.getName());
     }
   }
 
@@ -133,7 +126,7 @@ public class HeadlessGameServer {
   public synchronized void loadGameSave(final InputStream input) {
     // don't change mid-game
     if (setupPanelModel.getPanel() != null && game == null) {
-      getGameData(input)
+      GameDataManager.loadGame(input)
           .filter(this::checkGameIsAvailableOnServer)
           .ifPresent(gameSelectorModel::setGameData);
     }
@@ -145,15 +138,6 @@ public class HeadlessGameServer {
     } else {
       log.warning("Game is not installed on this server: " + gameData.getGameName());
       return false;
-    }
-  }
-
-  public Optional<GameData> getGameData(final InputStream input) {
-    try {
-      return Optional.of(GameDataManager.loadGame(input));
-    } catch (final IOException e) {
-      log.log(Level.SEVERE, "Failed to load game", e);
-      return Optional.empty();
     }
   }
 
@@ -319,9 +303,6 @@ public class HeadlessGameServer {
             + "   "
             + LOBBY_URI
             + "=<LOBBY_URI>\n"
-            + "   "
-            + LOBBY_GAME_SUPPORT_PASSWORD
-            + "=<password for remote actions, such as remote stop game>\n"
             + "   "
             + MAP_FOLDER
             + "=<MAP_FOLDER>"

@@ -43,8 +43,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.logging.Level;
 import lombok.Getter;
+import org.triplea.injection.Injections;
 import org.triplea.java.collections.CollectionUtils;
 import org.triplea.util.Tuple;
 
@@ -188,10 +188,13 @@ public abstract class AbstractProAi extends AbstractAi {
       final GameData dataCopy;
       try {
         data.acquireWriteLock();
-        dataCopy = GameDataUtils.cloneGameDataWithoutHistory(data, true);
-      } catch (final Throwable t) {
-        ProLogger.log(Level.WARNING, "Error trying to clone game data for simulating phases", t);
-        return;
+        dataCopy =
+            GameDataUtils.cloneGameDataWithoutHistory(
+                    data, true, Injections.getInstance().getEngineVersion())
+                .orElse(null);
+        if (dataCopy == null) {
+          return;
+        }
       } finally {
         data.releaseWriteLock();
       }
@@ -393,7 +396,7 @@ public abstract class AbstractProAi extends AbstractAi {
         final double strengthDifference =
             ProBattleUtils.estimateStrengthDifference(proData, battleSite, attackers, defenders);
         int minStrengthDifference = 60;
-        if (!Properties.getLowLuck(data)) {
+        if (!Properties.getLowLuck(data.getProperties())) {
           minStrengthDifference = 55;
         }
         if (strengthDifference > minStrengthDifference) {

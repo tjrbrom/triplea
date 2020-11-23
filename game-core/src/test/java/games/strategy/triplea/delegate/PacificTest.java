@@ -7,7 +7,6 @@ import static games.strategy.triplea.delegate.MockDelegateBridge.newDelegateBrid
 import static games.strategy.triplea.delegate.MockDelegateBridge.whenGetRandom;
 import static games.strategy.triplea.delegate.MockDelegateBridge.withValues;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import games.strategy.engine.data.GamePlayer;
 import games.strategy.engine.data.Route;
@@ -17,6 +16,9 @@ import games.strategy.engine.data.Unit;
 import games.strategy.engine.data.UnitType;
 import games.strategy.engine.delegate.IDelegateBridge;
 import games.strategy.triplea.Constants;
+import games.strategy.triplea.Properties;
+import games.strategy.triplea.delegate.battle.BattleState;
+import games.strategy.triplea.delegate.power.calculator.CombatValueBuilder;
 import games.strategy.triplea.xml.TestMapGameData;
 import java.util.Collection;
 import java.util.List;
@@ -107,20 +109,59 @@ class PacificTest extends AbstractDelegateTestCase {
     // Defending US infantry
     DiceRoll roll =
         DiceRoll.rollDice(
-            infantryUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            infantryUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
     // Defending US marines
     final List<Unit> marineUs = marine.create(1, americans);
     roll =
         DiceRoll.rollDice(
-            marineUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            marineUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(marineUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
     // Chinese units
     // Defending Chinese infantry
     final List<Unit> infantryChina = infantry.create(1, chinese);
     roll =
         DiceRoll.rollDice(
-            infantryChina, true, chinese, bridge, mock(Territory.class), territoryEffects);
+            infantryChina,
+            chinese,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryChina)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
   }
 
@@ -144,36 +185,114 @@ class PacificTest extends AbstractDelegateTestCase {
     // Defending US infantry
     DiceRoll roll =
         DiceRoll.rollDice(
-            infantryUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            infantryUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(0, roll.getHits());
     // Defending US marines
     final List<Unit> marineUs = marine.create(1, americans);
     roll =
         DiceRoll.rollDice(
-            marineUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            marineUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(marineUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(0, roll.getHits());
     // Chinese units
     // Defending Chinese infantry
     final List<Unit> infantryChina = infantry.create(1, chinese);
     roll =
         DiceRoll.rollDice(
-            infantryChina, true, chinese, bridge, mock(Territory.class), territoryEffects);
+            infantryChina,
+            chinese,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryChina)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
     // Defending US infantry
     roll =
         DiceRoll.rollDice(
-            infantryUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            infantryUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
     // Defending US marines
     roll =
         DiceRoll.rollDice(
-            marineUs, true, americans, bridge, mock(Territory.class), territoryEffects);
+            marineUs,
+            americans,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(marineUs)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
     // Chinese units
     // Defending Chinese infantry
     roll =
         DiceRoll.rollDice(
-            infantryChina, true, chinese, bridge, mock(Territory.class), territoryEffects);
+            infantryChina,
+            chinese,
+            bridge,
+            "",
+            CombatValueBuilder.mainCombatValue()
+                .enemyUnits(List.of())
+                .friendlyUnits(infantryChina)
+                .side(BattleState.Side.DEFENSE)
+                .gameSequence(bridge.getData().getSequence())
+                .supportAttachments(bridge.getData().getUnitTypeList().getSupportRules())
+                .lhtrHeavyBombers(Properties.getLhtrHeavyBombers(bridge.getData().getProperties()))
+                .gameDiceSides(bridge.getData().getDiceSides())
+                .territoryEffects(territoryEffects)
+                .build());
     assertEquals(1, roll.getHits());
   }
 

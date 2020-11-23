@@ -12,6 +12,8 @@ import org.triplea.debug.console.window.DebugUtils;
 import org.triplea.debug.error.reporting.formatting.ErrorReportBodyFormatter;
 import org.triplea.debug.error.reporting.formatting.ErrorReportTitleFormatter;
 import org.triplea.http.client.error.report.ErrorReportRequest;
+import org.triplea.injection.Injections;
+import org.triplea.util.Version;
 
 @Builder
 class StackTraceReportModel {
@@ -20,6 +22,7 @@ class StackTraceReportModel {
   @Nonnull private final LoggerRecord stackTraceRecord;
   @Nonnull private final Predicate<ErrorReportRequest> uploader;
   @Nonnull private final Consumer<ErrorReportRequest> preview;
+  @Nonnull private final Version engineVersion;
 
   void submitAction() {
     if (uploader.test(readErrorReportFromUi())) {
@@ -37,7 +40,9 @@ class StackTraceReportModel {
                     .map(ResourceLoader::getMapName)
                     .orElse(null),
                 DebugUtils.getMemory(),
-                stackTraceRecord))
+                stackTraceRecord,
+                engineVersion))
+        .gameVersion(Injections.getInstance().getEngineVersion().toString())
         .build();
   }
 

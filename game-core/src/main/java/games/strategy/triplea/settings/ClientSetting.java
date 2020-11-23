@@ -114,6 +114,8 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new BooleanClientSetting("REMEMBER_EMAIL_PASSWORD", false);
   public static final BooleanClientSetting rememberForumPassword =
       new BooleanClientSetting("REMEMBER_FORUM_PASSWORD", false);
+  public static final BooleanClientSetting saveGameCompatibilityCheck =
+      new BooleanClientSetting("SAVE_GAME_COMPATIBILITY_CHECK", true);
   public static final ClientSetting<Path> saveGamesFolderPath =
       new PathClientSetting(
           "SAVE_GAMES_FOLDER_PATH",
@@ -126,6 +128,8 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new BooleanClientSetting("SHOW_BATTLES_WHEN_OBSERVING", true);
   public static final ClientSetting<Boolean> showBetaFeatures =
       new BooleanClientSetting("SHOW_BETA_FEATURES");
+  public static final ClientSetting<Boolean> showSerializeFeatures =
+      new BooleanClientSetting("SHOW_SERIALIZE_FEATURES");
   public static final ClientSetting<Boolean> useMapsServerBetaFeature =
       new BooleanClientSetting("USE_MAPS_SERVER_BETA_FEATURES");
   public static final BooleanClientSetting showChatTimeSettings =
