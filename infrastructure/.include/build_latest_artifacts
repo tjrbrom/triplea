@@ -19,11 +19,16 @@ function main() {
 function buildArtifacts() {
   (
     cd ..
-    ./gradlew :lobby-server:shadowJar :game-headless:shadowJar :database:release
+    ./gradlew \
+        :servers:lobby-server:release \
+        :servers:maps-server:release \
+        :game-app:game-headless:release \
+        :servers:database:release
   )
-  copyBuildArtifact "../database/build/artifacts/migrations.zip" "ansible/roles/database/flyway/files/"
-  copyBuildArtifact "../lobby-server/build/libs/triplea-lobby-server-$VERSION.jar" "ansible/roles/lobby_server/files/"
-  copyBuildArtifact "../game-headless/build/libs/triplea-game-headless-$VERSION.jar" "ansible/roles/bot/files/"
+  copyBuildArtifact "../servers/database/build/artifacts/migrations.zip" "ansible/roles/database/flyway/files/"
+  copyBuildArtifact "../servers/lobby-server/build/artifacts/triplea-lobby-server-$VERSION.zip" "ansible/roles/lobby_server/files/"
+  copyBuildArtifact "../servers/maps-server/build/artifacts/triplea-maps-server-$VERSION.zip" "ansible/roles/maps_server/files/"
+  copyBuildArtifact "../game-app/game-headless/build/artifacts/triplea-game-headless-$VERSION.zip" "ansible/roles/bot/files/"
 }
 
 function copyBuildArtifact() {
@@ -36,7 +41,7 @@ function copyBuildArtifact() {
   fi
 
   mkdir -p "$artifactDestinationPath"
-  cp "$artifactSource" "$artifactDestinationPath"
+  cp -v "$artifactSource" "$artifactDestinationPath"
 }
 
 main

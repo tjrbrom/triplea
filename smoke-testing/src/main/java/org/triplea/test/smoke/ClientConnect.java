@@ -8,7 +8,7 @@ import games.strategy.net.IClientMessenger;
 import java.net.URI;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 import org.triplea.http.client.lobby.login.LobbyLoginClient;
 import org.triplea.http.client.lobby.login.LobbyLoginResponse;
 import org.triplea.util.Version;
@@ -18,7 +18,7 @@ import org.triplea.util.Version;
  * throwing an exception which causes a non-zero exit code.
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-@Log
+@Slf4j
 public final class ClientConnect {
   public static void main(final String[] args) throws Exception {
     connectToLobby();
@@ -50,7 +50,7 @@ public final class ClientConnect {
                 .port(4000)
                 .build(),
             new GameObjectStreamFactory(null),
-            new ClientLogin(null, new Version(2, 0, 0)));
+            new ClientLogin(null, new Version("2.0.0")));
     Thread.sleep(500L);
     log.info("Connection to bot server SUCCESSFUL, closing connection");
     messenger.shutDown();

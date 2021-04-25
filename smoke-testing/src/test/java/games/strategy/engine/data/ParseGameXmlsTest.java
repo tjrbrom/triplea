@@ -13,9 +13,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.triplea.config.product.ProductVersionReader;
-import org.triplea.test.common.Integration;
 
-@Integration
 class ParseGameXmlsTest {
 
   @ParameterizedTest
@@ -23,7 +21,7 @@ class ParseGameXmlsTest {
   void parseGameFiles(final File xmlFile) {
     final Optional<GameData> result =
         GameParser.parse(
-            xmlFile.toURI(), new XmlGameElementMapper(), new ProductVersionReader().getVersion());
+            xmlFile, new XmlGameElementMapper(), new ProductVersionReader().getVersion());
     assertThat(result, OptionalMatchers.isPresent());
   }
 

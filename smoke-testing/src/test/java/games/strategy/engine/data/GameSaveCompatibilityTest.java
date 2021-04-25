@@ -12,10 +12,8 @@ import java.util.Collection;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.triplea.config.product.ProductVersionReader;
-import org.triplea.test.common.Integration;
 
 @SuppressWarnings("UnmatchedTest")
-@Integration
 class GameSaveCompatibilityTest {
 
   @ParameterizedTest
@@ -35,7 +33,6 @@ class GameSaveCompatibilityTest {
     assertThat(gameData.getDiceSides(), is(notNullValue()));
     assertThat(gameData.getGameLoader(), is(notNullValue()));
     assertThat(gameData.getGameName(), is(notNullValue()));
-    assertThat(gameData.getGameVersion(), is(notNullValue()));
     assertThat(gameData.getHistory().getActivePlayer(), is(notNullValue()));
     assertThat(gameData.getHistory().getLastNode(), is(notNullValue()));
     assertThat(gameData.getMap().getTerritories(), is(notNullValue()));

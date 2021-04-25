@@ -1,0 +1,27 @@
+name: Deploy Prerelease
+on:
+  push:
+    branches:
+      - master
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+  build:
+    name: Deploy to Prerelease
+    runs-on: Ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: set build version variables
+        run: |
+          BUILD_NUMBER=$(.build/set-build-number ${{ github.run_number }})
+          echo "product_version=$BUILD_NUMBER" | tee -a $GITHUB_ENV
+      - name: Deploy to Prerelease
+        run: |
+          eval "$(ssh-agent -s)"
+          cd infrastructure
+          echo "$ANSIBLE_VAULT_PASSWORD" > vault_password
+          ./run_ansible_prerelease ${{ env.product_version }}
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+

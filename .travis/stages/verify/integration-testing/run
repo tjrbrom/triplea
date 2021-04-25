@@ -1,7 +1,0 @@
-#!/bin/bash
-
-set -eEux
-
-.travis/shared/setup-database
-./gradlew integTest -x :smoke-testing:integTest
-
