@@ -4,8 +4,8 @@ import com.google.common.annotations.VisibleForTesting;
 import games.strategy.engine.framework.map.file.system.loader.ZippedMapsExtractor;
 import java.io.IOException;
 import java.nio.file.Path;
-import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
+import org.triplea.http.client.maps.listing.MapDownloadItem;
 import org.triplea.io.FileUtils;
 import org.triplea.java.ThreadRunner;
 import org.triplea.map.description.file.MapDescriptionYaml;
@@ -24,18 +24,16 @@ final class DownloadFile {
     DONE
   }
 
-  private final DownloadFileDescription download;
+  private final MapDownloadItem download;
   private final DownloadListener downloadListener;
   private volatile DownloadState state = DownloadState.NOT_STARTED;
 
-  DownloadFile(final DownloadFileDescription download, final DownloadListener downloadListener) {
+  DownloadFile(final MapDownloadItem download, final DownloadListener downloadListener) {
     this.download = download;
     this.downloadListener = downloadListener;
-
-    SwingUtilities.invokeLater(() -> downloadListener.downloadStarted(download));
   }
 
-  DownloadFileDescription getDownload() {
+  MapDownloadItem getDownload() {
     return download;
   }
 
@@ -59,14 +57,14 @@ final class DownloadFile {
 
           final FileSizeWatcher watcher =
               new FileSizeWatcher(
-                  targetTempFileToDownloadTo.toFile(),
+                  targetTempFileToDownloadTo,
                   bytesReceived -> downloadListener.downloadUpdated(download, bytesReceived));
 
           try {
             DownloadConfiguration.contentReader()
-                .downloadToFile(download.getUrl(), targetTempFileToDownloadTo.toFile());
+                .downloadToFile(download.getDownloadUrl(), targetTempFileToDownloadTo);
           } catch (final IOException e) {
-            log.error("Failed to download: " + download.getUrl(), e);
+            log.error("Failed to download: " + download.getDownloadUrl(), e);
             return;
           } finally {
             watcher.stop();
@@ -82,6 +80,7 @@ final class DownloadFile {
           ZippedMapsExtractor.unzipMap(targetTempFileToDownloadTo)
               .ifPresent(
                   installedMap -> {
+                    // create a map description YAML file for the map if it does not contain one
                     if (MapDescriptionYaml.fromMap(installedMap).isEmpty()) {
                       MapDescriptionYaml.generateForMap(installedMap);
                     }

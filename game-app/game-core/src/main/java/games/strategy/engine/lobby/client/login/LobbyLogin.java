@@ -4,19 +4,19 @@ import com.google.common.base.Strings;
 import feign.FeignException;
 import games.strategy.engine.framework.ui.background.BackgroundTaskRunner;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import javax.swing.JFrame;
+import lombok.extern.slf4j.Slf4j;
 import org.triplea.domain.data.ApiKey;
 import org.triplea.domain.data.UserName;
-import org.triplea.http.client.HttpInteractionException;
-import org.triplea.http.client.SystemIdHeader;
+import org.triplea.http.client.AuthenticationHeaders;
 import org.triplea.http.client.forgot.password.ForgotPasswordClient;
 import org.triplea.http.client.forgot.password.ForgotPasswordRequest;
 import org.triplea.http.client.lobby.login.CreateAccountResponse;
 import org.triplea.http.client.lobby.login.LobbyLoginClient;
 import org.triplea.http.client.lobby.login.LobbyLoginResponse;
-import org.triplea.live.servers.ServerProperties;
 import org.triplea.swing.DialogBuilder;
 import org.triplea.swing.SwingComponents;
 
@@ -27,17 +27,18 @@ import org.triplea.swing.SwingComponents;
  * containing the user's name. The server will send back an authentication challenge. The client
  * then sends a response to the challenge to prove the user knows the correct password.
  */
+@Slf4j
 public class LobbyLogin {
   private static final String CONNECTING_TO_LOBBY = "Connecting to lobby...";
   private final JFrame parentWindow;
 
-  private final ServerProperties serverProperties;
+  private final URI lobbyUri;
   private final LobbyLoginClient lobbyLoginClient;
 
-  public LobbyLogin(final JFrame parentWindow, final ServerProperties serverProperties) {
+  public LobbyLogin(final JFrame parentWindow, final URI lobbyUri) {
     this.parentWindow = parentWindow;
-    this.serverProperties = serverProperties;
-    lobbyLoginClient = LobbyLoginClient.newClient(serverProperties.getUri());
+    this.lobbyUri = lobbyUri;
+    this.lobbyLoginClient = LobbyLoginClient.newClient(lobbyUri);
   }
 
   /**
@@ -55,7 +56,7 @@ public class LobbyLogin {
               final boolean passwordChanged =
                   ChangePasswordPanel.doPasswordChange(
                       parentWindow,
-                      serverProperties.getUri(),
+                      lobbyUri,
                       loginResult.getApiKey(),
                       ChangePasswordPanel.AllowCancelMode.DO_NOT_SHOW_CANCEL_BUTTON);
 
@@ -69,7 +70,7 @@ public class LobbyLogin {
                 notifyTempPasswordInvalid(parentWindow, null);
               }
 
-            } catch (final HttpInteractionException e) {
+            } catch (final FeignException e) {
               notifyTempPasswordInvalid(parentWindow, e);
             }
           }
@@ -107,11 +108,11 @@ public class LobbyLogin {
                 .passwordChangeRequired(loginResponse.isPasswordChangeRequired())
                 .build());
       } else {
-        showError("Login Failed", loginResponse.getFailReason());
+        showMessage("Login Failed", loginResponse.getFailReason());
         return loginToServer(loginMode);
       }
     } catch (final FeignException e) {
-      showError("Could Not Connect To Lobby", "Error: " + e.getMessage());
+      log.error("Could Not Connect To Lobby", e);
       return Optional.empty();
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -119,7 +120,7 @@ public class LobbyLogin {
     }
   }
 
-  private void showError(final String title, final String message) {
+  private void showMessage(final String title, final String message) {
     // We use 'null' parentWindow in case there is an async failure connecting to the lobby
     // server. In the async case, we close the parent window while still connecting, the close
     // of the parent window will close the child dialog error message as well.
@@ -168,7 +169,7 @@ public class LobbyLogin {
     try {
       final CreateAccountResponse createAccountResponse = sendCreateAccountRequest(panel);
       if (!createAccountResponse.isSuccess()) {
-        showError("Account Creation Failed", createAccountResponse.getErrorMessage());
+        showMessage("Account Creation Failed", createAccountResponse.getErrorMessage());
         return Optional.empty();
       }
 
@@ -227,9 +228,9 @@ public class LobbyLogin {
           BackgroundTaskRunner.runInBackgroundAndReturn(
                   "Sending forgot password request...",
                   () ->
-                      ForgotPasswordClient.newClient(serverProperties.getUri())
+                      ForgotPasswordClient.newClient(lobbyUri)
                           .sendForgotPasswordRequest(
-                              SystemIdHeader.headers(),
+                              AuthenticationHeaders.systemIdHeaders(),
                               ForgotPasswordRequest.builder()
                                   .username(panel.getUserName())
                                   .email(panel.getEmail())
@@ -242,7 +243,7 @@ public class LobbyLogin {
           .infoMessage(response)
           .showDialog();
     } catch (final IOException e) {
-      showError("Error", "Failed to generate a temporary password: " + e.getMessage());
+      showMessage("Error", "Failed to generate a temporary password: " + e.getMessage());
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }

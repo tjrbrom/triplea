@@ -17,6 +17,7 @@ import games.strategy.triplea.delegate.PoliticsDelegate;
 import games.strategy.triplea.delegate.TechnologyDelegate;
 import games.strategy.triplea.delegate.battle.BattleDelegate;
 import games.strategy.triplea.ui.UiContext;
+import games.strategy.ui.Util;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -32,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import javax.swing.SwingUtilities;
 import org.triplea.injection.Injections;
 import org.triplea.io.FileUtils;
 import org.triplea.io.IoUtils;
@@ -491,8 +491,8 @@ public class GameData implements Serializable, GameState {
 
   /** Executes a change and notifies listeners. */
   public void performChange(final Change change) {
-    if (areChangesOnlyInSwingEventThread() && !SwingUtilities.isEventDispatchThread()) {
-      throw new IllegalStateException("Wrong thread");
+    if (areChangesOnlyInSwingEventThread()) {
+      Util.ensureOnEventDispatchThread();
     }
     try {
       acquireWriteLock();
@@ -546,13 +546,13 @@ public class GameData implements Serializable, GameState {
     // From the game-xml file name, we can find the game-notes file.
     return findMapDescriptionYaml()
         .flatMap(yaml -> yaml.getGameXmlPathByGameName(getGameName()))
-        .map(gameFilePath -> GameNotes.loadGameNotes(gameFilePath, getGameName()))
+        .map(GameNotes::loadGameNotes)
         .orElse("");
   }
 
   private Optional<MapDescriptionYaml> findMapDescriptionYaml() {
     return FileUtils.findFileInParentFolders(
-            UiContext.getResourceLoader().getMapLocation(), MapDescriptionYaml.MAP_YAML_FILE_NAME)
+            UiContext.getMapLocation(), MapDescriptionYaml.MAP_YAML_FILE_NAME)
         .flatMap(MapDescriptionYaml::fromFile);
   }
 }

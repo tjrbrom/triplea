@@ -15,8 +15,8 @@ import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.imageio.ImageIO;
@@ -24,6 +24,7 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import org.triplea.java.concurrency.CompletableFutureUtils;
+import org.triplea.swing.FileChooser;
 import org.triplea.swing.SwingComponents;
 
 /** Provides methods to export a screenshot for a game at a particular point in time. */
@@ -54,11 +55,17 @@ public final class ScreenshotExporter {
     exporter.promptSaveFile().ifPresent(file -> exporter.runSave(gameData, node, file));
   }
 
-  private Optional<File> promptSaveFile() {
-    return SwingComponents.promptSaveFile(frame, "png", "Saved Map Snapshots");
+  private Optional<Path> promptSaveFile() {
+    return FileChooser.builder()
+        .parent(frame)
+        .title("Export Screenshot")
+        .fileExtension("png")
+        .filenameFilter((dir, name) -> name.toLowerCase().endsWith(".png"))
+        .build()
+        .chooseFile();
   }
 
-  private void runSave(final GameData gameData, final HistoryNode node, final File file) {
+  private void runSave(final GameData gameData, final HistoryNode node, final Path file) {
     final CompletableFuture<?> future =
         SwingComponents.runWithProgressBar(
                 frame,
@@ -74,7 +81,7 @@ public final class ScreenshotExporter {
                           if (e == null) {
                             JOptionPane.showMessageDialog(
                                 frame,
-                                "Saved to: " + file.getAbsolutePath(),
+                                "Saved to: " + file.toAbsolutePath(),
                                 "Gameboard Picture Saved",
                                 JOptionPane.INFORMATION_MESSAGE);
                           } else {
@@ -89,7 +96,7 @@ public final class ScreenshotExporter {
         future, throwable -> log.error("Failed to save map snapshot", throwable));
   }
 
-  private void save(final GameData gameData, final HistoryNode node, final File file)
+  private void save(final GameData gameData, final HistoryNode node, final Path file)
       throws IOException {
     // get round/step/player from history tree
     int round = 0;
@@ -143,7 +150,7 @@ public final class ScreenshotExporter {
       }
 
       // save Image as .png
-      ImageIO.write(mapImage, "png", file);
+      ImageIO.write(mapImage, "png", file.toFile());
     } finally {
       // Clean up objects. There might be some overkill here,
       // but there were memory leaks that are fixed by some/all of these.

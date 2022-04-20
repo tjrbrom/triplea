@@ -37,25 +37,40 @@ class GithubApiClientTest {
         TestDataFileReader.readContents("sample_responses/repo_listing_response_page2.json"));
     stubRepoListingResponse(3, server, "[]");
 
-    final Collection<URI> repoUris =
+    final Collection<MapRepoListing> repos =
         GithubApiClient.builder()
-            .authToken("test-token")
             .uri(URI.create(server.baseUrl()))
             .build()
             .listRepositories("example-org");
 
-    assertThat(repoUris, hasSize(3));
-    assertThat(repoUris, hasItem(URI.create("https://github.com/triplea-maps/tutorial")));
+    assertThat(repos, hasSize(3));
     assertThat(
-        repoUris, hasItem(URI.create("https://github.com/triplea-maps/aa_enhanced_revised")));
-    assertThat(repoUris, hasItem(URI.create("https://github.com/triplea-maps/roman_invasion")));
+        repos,
+        hasItem(
+            MapRepoListing.builder()
+                .htmlUrl("https://github.com/triplea-maps/tutorial")
+                .name("tutorial")
+                .build()));
+    assertThat(
+        repos,
+        hasItem(
+            MapRepoListing.builder()
+                .htmlUrl("https://github.com/triplea-maps/aa_enhanced_revised")
+                .name("aa_enhanced_revised")
+                .build()));
+    assertThat(
+        repos,
+        hasItem(
+            MapRepoListing.builder()
+                .htmlUrl("https://github.com/triplea-maps/roman_invasion")
+                .name("roman_invasion")
+                .build()));
   }
 
   private void stubRepoListingResponse(
       final int expectedPageNumber, final WireMockServer server, final String response) {
     server.stubFor(
         get("/orgs/example-org/repos?per_page=100&page=" + expectedPageNumber)
-            .withHeader(AuthenticationHeaders.API_KEY_HEADER, equalTo("token test-token"))
             .willReturn(aResponse().withStatus(200).withBody(response)));
   }
 
@@ -80,5 +95,25 @@ class GithubApiClientTest {
     final Instant expectedLastCommitDate =
         LocalDateTime.of(2021, 2, 4, 19, 30, 32).atOffset(ZoneOffset.UTC).toInstant();
     assertThat(branchInfoResponse.getLastCommitDate(), is(expectedLastCommitDate));
+  }
+
+  @Test
+  void getLatestRelease(@WiremockResolver.Wiremock final WireMockServer server) {
+    final String exampleResponse =
+        TestDataFileReader.readContents("sample_responses/latest_release_response.json");
+    server.stubFor(
+        get("/repos/example-org/map-repo/releases/latest")
+            .withHeader(AuthenticationHeaders.API_KEY_HEADER, equalTo("token test-token"))
+            .willReturn(aResponse().withStatus(200).withBody(exampleResponse)));
+
+    final String latestVersion =
+        GithubApiClient.builder()
+            .authToken("test-token")
+            .uri(URI.create(server.baseUrl()))
+            .build()
+            .fetchLatestVersion("example-org", "map-repo")
+            .orElseThrow();
+
+    assertThat(latestVersion, is("2.5.22294"));
   }
 }

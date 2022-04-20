@@ -5,7 +5,7 @@ import static org.hamcrest.Matchers.is;
 
 import games.strategy.triplea.settings.AbstractClientSettingTestCase;
 import games.strategy.triplea.settings.ClientSetting;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
@@ -18,12 +18,12 @@ final class HeadlessAutoSaveFileUtilsTest extends AbstractClientSettingTestCase 
   final class GetAutoSaveFileTest {
     @Test
     void shouldReturnFileInAutoSaveFolder() {
-      ClientSetting.saveGamesFolderPath.setValue(Paths.get("path", "to", "saves"));
+      ClientSetting.saveGamesFolderPath.setValue(Path.of("path", "to", "saves"));
 
       final String fileName = "savegame.tsvg";
       assertThat(
           autoSaveFileUtils.getAutoSaveFile(fileName),
-          is(Paths.get("path", "to", "saves", "autoSave", fileName).toFile()));
+          is(Path.of("path", "to", "saves", "autoSave", fileName)));
     }
   }
 
@@ -84,7 +84,8 @@ final class HeadlessAutoSaveFileUtilsTest extends AbstractClientSettingTestCase 
       assertThat(
           autoSaveFileUtils
               .getLostConnectionAutoSaveFile(LocalDateTime.of(2008, 5, 9, 22, 8))
-              .getName(),
+              .getFileName()
+              .toString(),
           is("connection_lost_on_May_09_at_22_08.tsvg"));
     }
   }

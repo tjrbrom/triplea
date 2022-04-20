@@ -20,7 +20,6 @@ import games.strategy.triplea.image.UnitImageFactory;
 import games.strategy.triplea.settings.ClientSetting;
 import games.strategy.triplea.ui.MouseDetails;
 import games.strategy.triplea.ui.UiContext;
-import games.strategy.triplea.ui.UnitIconProperties;
 import games.strategy.triplea.ui.screen.SmallMapImageManager;
 import games.strategy.triplea.ui.screen.Tile;
 import games.strategy.triplea.ui.screen.TileManager;
@@ -135,8 +134,7 @@ public class MapPanel extends ImageScrollerLargeView {
           // find the players with tech changes
           final Set<GamePlayer> playersWithTechChange = new HashSet<>();
           getPlayersWithTechChanges(change, playersWithTechChange);
-          if (!playersWithTechChange.isEmpty()
-              || UnitIconProperties.getInstance(gameData).testIfConditionsHaveChanged(gameData)) {
+          if (!playersWithTechChange.isEmpty()) {
             tileManager.resetTiles(gameData, uiContext.getMapData());
             SwingUtilities.invokeLater(
                 () -> {
@@ -712,16 +710,14 @@ public class MapPanel extends ImageScrollerLargeView {
           continue;
         }
 
-        final Optional<Image> image =
+        Image image =
             uiContext
                 .getUnitImageFactory()
                 .getHighlightImage(UnitImageFactory.ImageKey.of(category));
-        if (image.isPresent()) {
-          final AffineTransform transform =
-              AffineTransform.getTranslateInstance(
-                  normalizeX(r.getX() - getXOffset()), normalizeY(r.getY() - getYOffset()));
-          g2d.drawImage(image.get(), transform, this);
-        }
+        final AffineTransform transform =
+            AffineTransform.getTranslateInstance(
+                normalizeX(r.getX() - getXOffset()), normalizeY(r.getY() - getYOffset()));
+        g2d.drawImage(image, transform, this);
       }
     }
     // draw the tiles nearest us first

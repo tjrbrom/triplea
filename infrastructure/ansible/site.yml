@@ -1,45 +1,31 @@
 - hosts: all
-  tags: system
   roles:
     - system/hostname
     - system/apt_update
     - system/firewall
     - system/security
     - system/journald
+    - system/apt_common_tools
+    - system/admin_user
 
 - hosts: forums
   tags: forums
   roles:
-    - system/admin_user
-    - system/apt_common_tools
     - nginx_forums_conf
 
 - hosts: database
   tags: [database, postgres]
   roles:
-    - system/admin_user
-    - system/apt_common_tools
     - database/postgres
     - {name: database/flyway, tags: flyway}
 
 - hosts: lobbyServer
   tags: [lobby, lobby_server]
   roles:
-    - system/admin_user
-    - system/apt_common_tools
     - java
     - lobby_server
     - nginx
     - postfix
-
-- hosts: mapsServer
-  tags: [maps_server]
-  roles:
-    - system/admin_user
-    - system/apt_common_tools
-    - java
-    - maps_server
-    - nginx
 
 - hosts: letsEncrypt
   tags: lobby
@@ -54,7 +40,6 @@
 - hosts: botHosts
   tags: [bot, bots]
   roles:
-    - system/apt_common_tools
     - java
     - bot
 

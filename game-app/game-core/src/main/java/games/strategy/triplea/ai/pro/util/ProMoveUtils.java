@@ -99,8 +99,7 @@ public final class ProMoveUtils {
               map.getRouteForUnit(
                   startTerritory,
                   t,
-                  ProMatches.territoryCanMoveSeaUnitsThrough(
-                      player, data.getProperties(), data.getRelationshipTracker(), isCombatMove),
+                  ProMatches.territoryCanMoveSeaUnitsThrough(data, player, isCombatMove),
                   u,
                   player);
         } else if (!unitList.isEmpty() && unitList.stream().allMatch(Matches.unitIsLand())) {
@@ -111,7 +110,7 @@ public final class ProMoveUtils {
                   startTerritory,
                   t,
                   ProMatches.territoryCanMoveLandUnitsThrough(
-                      player, data, u, startTerritory, isCombatMove, List.of()),
+                      data, player, u, startTerritory, isCombatMove, List.of()),
                   u,
                   player);
           if (route == null && startTerritory.equals(lastLandTransport.getFirst())) {
@@ -120,8 +119,8 @@ public final class ProMoveUtils {
                     startTerritory,
                     t,
                     ProMatches.territoryCanMoveLandUnitsThrough(
-                        player,
                         data,
+                        player,
                         lastLandTransport.getSecond(),
                         startTerritory,
                         isCombatMove,
@@ -136,8 +135,7 @@ public final class ProMoveUtils {
               map.getRouteForUnit(
                   startTerritory,
                   t,
-                  ProMatches.territoryCanMoveAirUnitsAndNoAa(
-                      player, data.getProperties(), data.getRelationshipTracker(), isCombatMove),
+                  ProMatches.territoryCanMoveAirUnitsAndNoAa(data, player, isCombatMove),
                   u,
                   player);
         }
@@ -234,8 +232,7 @@ public final class ProMoveUtils {
             final Set<Territory> neighbors =
                 map.getNeighbors(
                     transportTerritory,
-                    ProMatches.territoryCanMoveSeaUnitsThrough(
-                        player, data.getProperties(), data.getRelationshipTracker(), isCombatMove));
+                    ProMatches.territoryCanMoveSeaUnitsThrough(data, player, isCombatMove));
             Territory territoryToMoveTo = null;
             int minUnitDistance = Integer.MAX_VALUE;
             int maxDistanceFromEnd =
@@ -252,21 +249,13 @@ public final class ProMoveUtils {
                     map.getDistanceIgnoreEndForCondition(
                         neighbor,
                         unloadTerritory,
-                        ProMatches.territoryCanMoveSeaUnitsThrough(
-                            player,
-                            data.getProperties(),
-                            data.getRelationshipTracker(),
-                            isCombatMove));
+                        ProMatches.territoryCanMoveSeaUnitsThrough(data, player, isCombatMove));
               }
               int neighborDistanceFromEnd =
                   map.getDistanceIgnoreEndForCondition(
                       neighbor,
                       t,
-                      ProMatches.territoryCanMoveSeaUnitsThrough(
-                          player,
-                          data.getProperties(),
-                          data.getRelationshipTracker(),
-                          isCombatMove));
+                      ProMatches.territoryCanMoveSeaUnitsThrough(data, player, isCombatMove));
               if (t.isWater()) {
                 neighborDistanceFromEnd++;
               }
@@ -368,8 +357,7 @@ public final class ProMoveUtils {
               map.getRouteForUnit(
                   startTerritory,
                   bombardFromTerritory,
-                  ProMatches.territoryCanMoveSeaUnitsThrough(
-                      player, data.getProperties(), data.getRelationshipTracker(), true),
+                  ProMatches.territoryCanMoveSeaUnitsThrough(data, player, true),
                   u,
                   player);
         }
@@ -413,18 +401,18 @@ public final class ProMoveUtils {
         unitList.add(u);
 
         // Determine route and add to move list
-        Route route = null;
-        if (!unitList.isEmpty() && unitList.stream().allMatch(Matches.unitIsAir())) {
-          route =
+        if (unitList.stream().allMatch(Matches.unitIsAir())) {
+          final Route route =
               map.getRouteForUnit(
                   startTerritory,
                   t,
-                  ProMatches.territoryCanMoveAirUnitsAndNoAa(
-                      player, data.getProperties(), data.getRelationshipTracker(), true),
+                  ProMatches.territoryCanMoveAirUnitsAndNoAa(data, player, true),
                   u,
                   player);
+          if (route != null) {
+            moves.add(new MoveDescription(unitList, route));
+          }
         }
-        moves.add(new MoveDescription(unitList, route));
       }
     }
     return moves;

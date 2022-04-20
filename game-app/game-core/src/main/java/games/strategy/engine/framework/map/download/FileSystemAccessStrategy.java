@@ -5,61 +5,65 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
+import org.triplea.http.client.maps.listing.MapDownloadItem;
 import org.triplea.swing.SwingComponents;
 
 @UtilityClass
 class FileSystemAccessStrategy {
 
-  static void remove(
-      final List<DownloadFileDescription> toRemove, final Consumer<String> removeAction) {
+  void remove(
+      final Function<MapDownloadItem, Boolean> mapDeleteAction,
+      final List<MapDownloadItem> toRemove,
+      final Consumer<String> removeAction) {
     SwingComponents.promptUser(
         "Remove Maps?",
         "<html>Will remove "
             + toRemove.size()
             + " maps, are you sure? <br/>"
-            + formatMapList(toRemove, DownloadFileDescription::getMapName)
+            + formatMapList(toRemove, MapDownloadItem::getMapName)
             + "</html>",
-        newRemoveMapAction(toRemove, removeAction));
+        newRemoveMapAction(mapDeleteAction, toRemove, removeAction));
   }
 
   private static Runnable newRemoveMapAction(
-      final List<DownloadFileDescription> maps, final Consumer<String> removeAction) {
+      final Function<MapDownloadItem, Boolean> mapDeleteAction,
+      final List<MapDownloadItem> maps,
+      final Consumer<String> removeActionListeners) {
     return () -> {
-      final List<DownloadFileDescription> deletes = new ArrayList<>();
+      final List<MapDownloadItem> deletes = new ArrayList<>();
 
       // delete the map files
-      for (final DownloadFileDescription map : maps) {
-        if (map.delete()) {
+      for (final MapDownloadItem map : maps) {
+        if (mapDeleteAction.apply(map)) {
           deletes.add(map);
         }
       }
 
       if (!deletes.isEmpty()) {
-        deletes.stream().map(DownloadFileDescription::getMapName).forEach(removeAction);
+        deletes.stream().map(MapDownloadItem::getMapName).forEach(removeActionListeners);
         final String message = newDialogMessage("Successfully removed.", deletes);
-        showDialog(message, deletes, DownloadFileDescription::getMapName);
+        showDialog(message, deletes, MapDownloadItem::getMapName);
       }
     };
   }
 
   private static void showDialog(
       final String message,
-      final List<DownloadFileDescription> mapList,
-      final Function<DownloadFileDescription, String> outputFunction) {
+      final List<MapDownloadItem> mapList,
+      final Function<MapDownloadItem, String> outputFunction) {
 
     SwingComponents.newMessageDialog(
         "<html>" + message + "<br /> " + formatMapList(mapList, outputFunction) + "</html>");
   }
 
   private static String newDialogMessage(
-      final String message, final List<DownloadFileDescription> mapList) {
+      final String message, final List<MapDownloadItem> mapList) {
     final String plural = mapList.size() != 1 ? "s" : "";
     return message + " " + mapList.size() + " map" + plural;
   }
 
   private static String formatMapList(
-      final List<DownloadFileDescription> mapList,
-      final Function<DownloadFileDescription, String> outputFunction) {
+      final List<MapDownloadItem> mapList, final Function<MapDownloadItem, String> outputFunction) {
     final int maxMapsToList = 6;
     final StringBuilder sb = new StringBuilder("<ul>");
     for (int i = 0; i < mapList.size(); i++) {

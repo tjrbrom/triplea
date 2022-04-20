@@ -5,30 +5,27 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.FormatMethod;
 import feign.Feign;
+import feign.FeignException;
 import feign.Logger;
 import feign.Request;
 import feign.Response;
 import feign.Retryer;
 import feign.codec.Decoder;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Builds http feign clients, each feign interface class should have a static {@code newClient}
+ * Builds http Feign clients, each Feign interface class should have a static {@code newClient}
  * convenience method to construct an instance of this class which can be used to interact with the
  * remote http interface.
  *
- * @param <ClientTypeT> The feign client interface, should be an interface type that has feign
+ * @param <ClientTypeT> Feign client interface, should be an interface type that contains Feign.
  *     annotations on it.
  */
 @Slf4j
@@ -37,10 +34,16 @@ import lombok.extern.slf4j.Slf4j;
 public class HttpClient<ClientTypeT> implements Supplier<ClientTypeT> {
 
   private static final Decoder gsonDecoder = JsonDecoder.gsonDecoder();
-  /** How long we can take to start receiving a message. */
-  private static final int DEFAULT_CONNECT_TIMEOUT_MS = 5 * 1000;
-  /** How long we can spend receiving a message. */
-  private static final int DEFAULT_READ_TIME_OUT_MS = 20 * 1000;
+  /**
+   * Allowed idle time for a connection with no activity (waiting to receive a message). Expressed
+   * in milliseconds. Default 5 seconds.
+   */
+  private static final int DEFAULT_CONNECT_TIMEOUT_MS = 5000;
+  /**
+   * The time a connection should allow for completely receiving a message. Expressed in
+   * milliseconds. Default 20 seconds.
+   */
+  private static final int DEFAULT_READ_TIME_OUT_MS = 20000;
 
   @Nonnull private final Class<ClientTypeT> classType;
   @Nonnull private final URI hostUri;
@@ -55,7 +58,7 @@ public class HttpClient<ClientTypeT> implements Supplier<ClientTypeT> {
     return Feign.builder()
         .encoder(new JsonEncoder())
         .decoder(gsonDecoder)
-        .errorDecoder(HttpClient::errorDecoder)
+        .errorDecoder(FeignException::errorStatus)
         .retryer(new Retryer.Default(100, SECONDS.toMillis(1), maxAttempts))
         .logger(
             new Logger() {
@@ -89,30 +92,5 @@ public class HttpClient<ClientTypeT> implements Supplier<ClientTypeT> {
                 TimeUnit.MILLISECONDS,
                 true))
         .target(classType, hostUri.toString());
-  }
-
-  /**
-   * This decoder acts similar to the default decoder where the method key and response status codes
-   * are printed, but in addition, if present, any server response body message is also printed.
-   */
-  private static Exception errorDecoder(final String methodKey, final Response response) {
-    final String firstLine =
-        String.format(
-            "Status %s reading %s\nReason: %s", response.status(), methodKey, response.reason());
-
-    throw Optional.ofNullable(response.body())
-        .map(
-            body -> {
-              try (BufferedReader reader =
-                  new BufferedReader(body.asReader(StandardCharsets.UTF_8))) {
-                final String errorMessageBody = reader.lines().collect(Collectors.joining("\n"));
-                return new HttpInteractionException(
-                    response.status(), firstLine + "\n" + errorMessageBody);
-              } catch (final IOException e) {
-                log.info("An additional error occurred when decoding response", e);
-                return new HttpInteractionException(response.status(), firstLine);
-              }
-            })
-        .orElseGet(() -> new HttpInteractionException(response.status(), firstLine));
   }
 }

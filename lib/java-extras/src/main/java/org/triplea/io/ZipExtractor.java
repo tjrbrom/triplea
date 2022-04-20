@@ -79,7 +79,8 @@ public class ZipExtractor {
     }
 
     // iterate over each zip entry and write to a corresponding file
-    try (FileSystem zipFileSystem = FileSystems.newFileSystem(fileZip, null)) {
+    // Note: We can switch to the single-param version of newFileSystem() once on Java 13+.
+    try (FileSystem zipFileSystem = FileSystems.newFileSystem(fileZip, (ClassLoader) null)) {
       final Path zipRoot = zipFileSystem.getRootDirectories().iterator().next();
       try (Stream<Path> files = Files.walk(zipRoot, MAX_DEPTH)) {
         for (final Path zipEntry : files.collect(Collectors.toList())) {
@@ -132,6 +133,9 @@ public class ZipExtractor {
 
     // ensure that the destination to write is within the target folder. Avoids
     // 'zip slip' vulnerability: https://snyk.io/research/zip-slip-vulnerability
+    // Recent versions of Java protect against this vulnerability by simply
+    // not parsing paths containing '..' at all, so this check can be
+    // removed once this fix is widely available.
     if (!destFile.normalize().startsWith(destinationDir.normalize())) {
       throw new ZipSecurityException(zipEntry);
     }

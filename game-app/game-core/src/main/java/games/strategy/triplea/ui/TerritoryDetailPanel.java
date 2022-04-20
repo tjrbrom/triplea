@@ -23,6 +23,8 @@ import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -31,8 +33,9 @@ import javax.swing.border.EmptyBorder;
 import org.triplea.swing.key.binding.KeyCode;
 import org.triplea.swing.key.binding.SwingKeyBinding;
 
-public class TerritoryDetailPanel extends AbstractStatPanel {
+public class TerritoryDetailPanel extends JPanel {
   private static final long serialVersionUID = 1377022163587438988L;
+  private GameData gameData;
   private final UiContext uiContext;
   private final JButton showOdds = new JButton("Battle Calculator (Ctrl-B)");
   private final JButton addAttackers = new JButton("Add Attackers (Ctrl-A)");
@@ -43,14 +46,15 @@ public class TerritoryDetailPanel extends AbstractStatPanel {
   private final JScrollPane units = new JScrollPane();
   private @Nullable Territory currentTerritory;
   private final TripleAFrame frame;
-  private List<Function<Territory, String>> additionalTerritoryDetailFunctions = new ArrayList<>();
+  private final List<Function<Territory, String>> additionalTerritoryDetailFunctions =
+      new ArrayList<>();
 
   TerritoryDetailPanel(
       final MapPanel mapPanel,
       final GameData data,
       final UiContext uiContext,
       final TripleAFrame frame) {
-    super(data);
+    this.gameData = data;
     this.frame = frame;
     this.uiContext = uiContext;
     mapPanel.addMapSelectionListener(
@@ -71,20 +75,10 @@ public class TerritoryDetailPanel extends AbstractStatPanel {
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
     setBorder(new EmptyBorder(5, 5, 0, 0));
 
-    showOdds.addActionListener(
-        e -> BattleCalculatorDialog.show(frame, currentTerritory, gameData.getHistory()));
-    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
-        frame,
-        KeyCode.B,
-        () -> BattleCalculatorDialog.show(frame, currentTerritory, gameData.getHistory()));
-
+    showOdds.addActionListener(e -> BattleCalculatorDialog.show(frame, currentTerritory, gameData));
     addAttackers.addActionListener(e -> BattleCalculatorDialog.addAttackers(currentTerritory));
-    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
-        frame, KeyCode.A, () -> BattleCalculatorDialog.addAttackers(currentTerritory));
-
     addDefenders.addActionListener(e -> BattleCalculatorDialog.addDefenders(currentTerritory));
-    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
-        frame, KeyCode.D, () -> BattleCalculatorDialog.addDefenders(currentTerritory));
+    addBattleCalculatorKeyBindings(frame);
     units.setBorder(BorderFactory.createEmptyBorder());
     units.getVerticalScrollBar().setUnitIncrement(20);
     add(showOdds);
@@ -95,6 +89,37 @@ public class TerritoryDetailPanel extends AbstractStatPanel {
     add(unitInfo);
     add(units);
     setElementsVisible(false);
+  }
+
+  /**
+   * Adds the battle calculator key bindings (CTRL-A, CTRL-D, CTRL-B) to the frame {@code jframe}.
+   * When triggered the {@code addAttackers(Territory)}, {@code addDefenders(Territory)} and {@code
+   * show(TripleAFrame, Territory, History)} methods of the battle calculator are triggered with the
+   * TripleAFrame, current territory and history of this TerritoryDetailPanel.
+   *
+   * @param jframe the frame to add the key bindings to
+   */
+  public void addBattleCalculatorKeyBindings(final JFrame jframe) {
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        jframe, KeyCode.B, () -> BattleCalculatorDialog.show(frame, currentTerritory, gameData));
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        jframe, KeyCode.A, () -> BattleCalculatorDialog.addAttackers(currentTerritory));
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        jframe, KeyCode.D, () -> BattleCalculatorDialog.addDefenders(currentTerritory));
+  }
+
+  /**
+   * Same as {@code addBattleCalculatorKeyBindings(JFrame)} but for {@code JDialog}.
+   *
+   * @param dialog the dialog to add the key bindings to
+   */
+  public void addBattleCalculatorKeyBindings(final JDialog dialog) {
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        dialog, KeyCode.B, () -> BattleCalculatorDialog.show(frame, currentTerritory, gameData));
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        dialog, KeyCode.A, () -> BattleCalculatorDialog.addAttackers(currentTerritory));
+    SwingKeyBinding.addKeyBindingWithMetaAndCtrlMasks(
+        dialog, KeyCode.D, () -> BattleCalculatorDialog.addDefenders(currentTerritory));
   }
 
   private void setElementsVisible(final boolean visible) {
@@ -145,21 +170,34 @@ public class TerritoryDetailPanel extends AbstractStatPanel {
       labelText = "<html>" + ta.toStringForInfo(true, true) + "<br>" + additionalText + "</html>";
     }
     territoryInfo.setText(labelText);
-    unitInfo.setText(
-        "Units: "
-            + territory.getUnits().stream()
-                .filter(u -> uiContext.getMapData().shouldDrawUnit(u.getType().getName()))
-                .count());
-    units.setViewportView(unitsInTerritoryPanel(territory, uiContext));
+
+    final List<UnitCategory> unitsList;
+    final String unitsLabel;
+
+    // Get the unit information under lock as otherwise they may change on the game thread causing a
+    // ConcurrentModificationException.
+    gameData.acquireReadLock();
+    try {
+      unitsList = UnitSeparator.getSortedUnitCategories(territory, uiContext.getMapData());
+      unitsLabel =
+          "Units: "
+              + territory.getUnits().stream()
+                  .filter(u -> uiContext.getMapData().shouldDrawUnit(u.getType().getName()))
+                  .count();
+    } finally {
+      gameData.releaseReadLock();
+    }
+
+    unitInfo.setText(unitsLabel);
+    units.setViewportView(unitsInTerritoryPanel(unitsList, uiContext));
   }
 
   private static JPanel unitsInTerritoryPanel(
-      final Territory territory, final UiContext uiContext) {
+      final List<UnitCategory> units, final UiContext uiContext) {
     final JPanel panel = new JPanel();
     panel.setBorder(BorderFactory.createEmptyBorder(2, 20, 2, 2));
     panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-    final List<UnitCategory> units =
-        UnitSeparator.getSortedUnitCategories(territory, uiContext.getMapData());
+
     @Nullable GamePlayer currentPlayer = null;
     for (final UnitCategory item : units) {
       // separate players with a separator

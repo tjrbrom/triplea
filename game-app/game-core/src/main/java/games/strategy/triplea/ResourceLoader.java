@@ -2,29 +2,31 @@ package games.strategy.triplea;
 
 import com.google.common.annotations.VisibleForTesting;
 import games.strategy.engine.ClientFileSystemHelper;
-import games.strategy.engine.framework.map.download.DownloadMapsWindow;
-import games.strategy.engine.framework.map.file.system.loader.DownloadedMapsListing;
-import games.strategy.engine.framework.startup.launcher.MapNotFoundException;
+import games.strategy.triplea.ui.OrderedProperties;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.Closeable;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.triplea.game.Exceptions;
 import org.triplea.io.ImageLoader;
-import org.triplea.swing.SwingComponents;
+import org.triplea.io.PathUtils;
+import org.triplea.java.UrlStreams;
 
 /**
  * Utility for managing where images and property files for maps and units should be loaded from.
@@ -36,63 +38,33 @@ public class ResourceLoader implements Closeable {
 
   private final URLClassLoader loader;
 
-  @Getter private final List<URL> searchUrls;
-  @Getter private final Path mapLocation;
+  @Getter private final List<Path> assetPaths;
 
-  public ResourceLoader(final String mapName) {
-    mapLocation =
-        mapName == null || mapName.isBlank()
-            ? null
-            : DownloadedMapsListing.parseMapFiles()
-                .findContentRootForMapName(mapName)
-                .orElseThrow(
-                    () -> {
-                      SwingComponents.promptUser(
-                          "Download Map?",
-                          "Map missing: "
-                              + mapName
-                              + ", could not join game.\nWould you like to download the map now?"
-                              + "\nOnce the download completes, you may reconnect to this game.",
-                          () -> DownloadMapsWindow.showDownloadMapsWindowAndDownload(mapName));
+  public ResourceLoader(@Nonnull final Path assetFolder) {
+    this(List.of(assetFolder));
+  }
 
-                      return new MapNotFoundException(mapName);
-                    });
+  public ResourceLoader(List<Path> assetPaths) {
+    this.assetPaths = assetPaths;
+    List<URL> searchUrls = assetPaths.stream().map(PathUtils::toUrl).collect(Collectors.toList());
 
-    // Add the assets folder from the game installation path. This assets folder supplements
-    // any map resources.
-    final File gameAssetsDirectory =
-        findDirectory(ClientFileSystemHelper.getRootFolder().toFile(), ASSETS_FOLDER)
+    Path gameEngineAssets =
+        findDirectory(ClientFileSystemHelper.getRootFolder(), ASSETS_FOLDER)
             .orElseThrow(GameAssetsNotFoundException::new);
+
+    searchUrls.add(PathUtils.toUrl(gameEngineAssets));
 
     // Note: URLClassLoader does not always respect the ordering of the search URLs
     // To solve this we will get all matching paths and then filter by what matched
     // the assets folder.
-    try {
-      searchUrls = new ArrayList<>();
-      if (mapLocation != null) {
-        searchUrls.add(mapLocation.toUri().toURL());
-      }
-      searchUrls.add(gameAssetsDirectory.toURI().toURL());
-      loader = new URLClassLoader(searchUrls.toArray(URL[]::new));
-    } catch (final MalformedURLException e) {
-      throw new IllegalArgumentException(
-          "Error creating file system paths with map: "
-              + mapName
-              + ", engine assets path: "
-              + gameAssetsDirectory.getAbsolutePath()
-              + ", and path to map: "
-              + mapLocation.toAbsolutePath(),
-          e);
-    }
+
+    loader = new URLClassLoader(searchUrls.toArray(URL[]::new));
   }
 
-  /**
-   * Resource loader that loads generic sounds and images, no map loaded. A standard resource loader
-   * will look for map assets first before falling back to game engine assets. This resource loader
-   * is to be used in the launching screens before any map has been launched.
-   */
-  public static ResourceLoader getGameEngineAssetLoader() {
-    return new ResourceLoader("");
+  @VisibleForTesting
+  ResourceLoader(final URLClassLoader loader) {
+    this.loader = loader;
+    this.assetPaths = List.of();
   }
 
   /**
@@ -101,7 +73,7 @@ public class ResourceLoader implements Closeable {
    * for more information on what will be contained in that folder.
    */
   public static Image loadImageAsset(final Path path) {
-    return ImageLoader.getImage(Path.of(ASSETS_FOLDER).resolve(path).toFile());
+    return ImageLoader.getImage(Path.of(ASSETS_FOLDER).resolve(path));
   }
 
   private static class GameAssetsNotFoundException extends RuntimeException {
@@ -116,11 +88,19 @@ public class ResourceLoader implements Closeable {
     }
   }
 
+  /**
+   * Searches from a starting directory for a given directory. If not found, recursively goes up to
+   * parent directories searching for the given directory.
+   *
+   * @param startDir The start of the search path.
+   * @param targetDirName The name of the directory to find (must be a directory, not a file)
+   * @return Path of the directory as found, otherwise empty.
+   */
   @VisibleForTesting
-  static Optional<File> findDirectory(final File startDir, final String targetDirName) {
-    for (File currentDir = startDir; currentDir != null; currentDir = currentDir.getParentFile()) {
-      final File targetDir = new File(currentDir, targetDirName);
-      if (targetDir.isDirectory()) {
+  static Optional<Path> findDirectory(final Path startDir, final String targetDirName) {
+    for (Path currentDir = startDir; currentDir != null; currentDir = currentDir.getParent()) {
+      final Path targetDir = currentDir.resolve(targetDirName);
+      if (Files.isDirectory(targetDir)) {
         return Optional.of(targetDir);
       }
     }
@@ -185,12 +165,43 @@ public class ResourceLoader implements Closeable {
     return optionalResource(path).orElseThrow(() -> new FileNotFoundException(path));
   }
 
+  public BufferedImage getImageOrThrow(final String inputPath) {
+    URL url = findResource(inputPath).orElseThrow(() -> new Exceptions.MissingFile(inputPath));
+    try {
+      return ImageIO.read(url);
+    } catch (IOException e) {
+      throw new Exceptions.MissingFile(inputPath, e);
+    }
+  }
+
   public Optional<Image> loadImage(final String imageName) {
+    final var bufferedImage = loadBufferedImage(imageName);
+    return Optional.ofNullable(bufferedImage.orElse(null));
+  }
+
+  private Path createPathToImage(final String firstPathElement, final String... furtherPath) {
+    Path imageFilePath = Path.of(firstPathElement);
+    for (final String pathPart : furtherPath) {
+      imageFilePath = imageFilePath.resolve(pathPart);
+    }
+    return imageFilePath;
+  }
+
+  /**
+   * tries to load images in a priority order, first from the map, then from engine assets
+   *
+   * @param firstPathElement the image file name or the first element of the path to the image
+   *     relative to the map folder of the game resp. the assets folder of the engine
+   * @param furtherPath zero or more further elements of the path to the image
+   * @return the image or null, if the image could not be found
+   */
+  public Optional<BufferedImage> loadBufferedImage(
+      final String firstPathElement, final String... furtherPath) {
+    final String imageName = createPathToImage(firstPathElement, furtherPath).toString();
     final URL url = getResource(imageName);
     if (url == null) {
       // this is actually pretty common that we try to read images that are not there. Let the
-      // caller
-      // decide if this is an error or not.
+      // caller decide if this is an error or not.
       return Optional.empty();
     }
     try {
@@ -203,5 +214,21 @@ public class ResourceLoader implements Closeable {
       log.error("Image loading failed: " + imageName, e);
       return Optional.empty();
     }
+  }
+
+  public Properties loadAsResource(final String fileName) {
+    final Properties properties = new OrderedProperties();
+    final URL url = getResource(fileName);
+    if (url != null) {
+      final Optional<InputStream> optionalInputStream = UrlStreams.openStream(url);
+      if (optionalInputStream.isPresent()) {
+        try (InputStream inputStream = optionalInputStream.get()) {
+          properties.load(inputStream);
+        } catch (final IOException e) {
+          log.error("Error reading " + fileName, e);
+        }
+      }
+    }
+    return properties;
   }
 }

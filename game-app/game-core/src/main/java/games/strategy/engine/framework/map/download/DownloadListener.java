@@ -1,9 +1,9 @@
 package games.strategy.engine.framework.map.download;
 
+import org.triplea.http.client.maps.listing.MapDownloadItem;
+
 interface DownloadListener {
-  void downloadStarted(DownloadFileDescription download);
+  void downloadUpdated(MapDownloadItem download, long bytesReceived);
 
-  void downloadUpdated(DownloadFileDescription download, long bytesReceived);
-
-  void downloadComplete(DownloadFileDescription download);
+  void downloadComplete(MapDownloadItem download);
 }

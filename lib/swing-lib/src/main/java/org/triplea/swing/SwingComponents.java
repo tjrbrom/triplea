@@ -2,7 +2,6 @@ package org.triplea.swing;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.awt.Color;
 import java.awt.Component;
@@ -14,7 +13,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Optional;
@@ -28,6 +27,7 @@ import javax.swing.ButtonGroup;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListModel;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
@@ -40,8 +40,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.ListModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.filechooser.FileFilter;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.experimental.UtilityClass;
@@ -55,7 +53,6 @@ import org.triplea.swing.jpanel.JPanelBuilder;
  */
 @UtilityClass
 public final class SwingComponents {
-  private static final String PERIOD = ".";
   private static final Collection<String> visiblePrompts = new HashSet<>();
 
   /**
@@ -81,12 +78,6 @@ public final class SwingComponents {
 
   public static JTabbedPane newJTabbedPane(final int width, final int height) {
     final JTabbedPane tabbedPane = new JTabbedPane();
-    tabbedPane.setPreferredSize(new Dimension(width, height));
-    return tabbedPane;
-  }
-
-  public static JTabbedPane newJTabbedPaneWithFixedWidthTabs(final int width, final int height) {
-    final JTabbedPane tabbedPane = new JTabbedPaneWithFixedWidthTabs();
     tabbedPane.setPreferredSize(new Dimension(width, height));
     return tabbedPane;
   }
@@ -125,19 +116,32 @@ public final class SwingComponents {
     }
 
     if (showMessage) {
-      SwingUtilities.invokeLater(
-          () -> {
-            // blocks until the user responds to the modal dialog
-            final int response =
-                JOptionPane.showConfirmDialog(
-                    null, message, title, JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+      // If message is long, place it in a scroll pane with a max size set.
+      // The max size is required to prevent the confirmation window from expanding
+      // to fit the full message (which might extend beyond the height of the screen).
+      final Component messageComponent =
+          message.length() < 1000
+              ? new JLabel(message)
+              : new JScrollPaneBuilder(new JLabel(message))
+                  .preferredSize(600, 600)
+                  .maxSize(600, 600)
+                  .border(BorderBuilder.EMPTY_BORDER)
+                  .build();
 
-            // dialog is now closed
-            visiblePrompts.remove(message);
-            if (response == JOptionPane.YES_OPTION) {
-              confirmedAction.run();
-            }
-          });
+      // blocks until the user responds to the modal dialog
+      final int response =
+          JOptionPane.showConfirmDialog(
+              null,
+              messageComponent,
+              title,
+              JOptionPane.YES_NO_OPTION,
+              JOptionPane.QUESTION_MESSAGE);
+
+      // dialog is now closed
+      visiblePrompts.remove(message);
+      if (response == JOptionPane.YES_OPTION) {
+        confirmedAction.run();
+      }
     }
   }
 
@@ -243,7 +247,7 @@ public final class SwingComponents {
    *     selection.
    * @return Empty if the user selects nothing, otherwise the users selection.
    */
-  public static Optional<File> showJFileChooser(final FolderSelectionMode folderSelectionMode) {
+  public static Optional<Path> showJFileChooser(final FolderSelectionMode folderSelectionMode) {
     final JFileChooser fileChooser = new JFileChooser();
     if (folderSelectionMode == FolderSelectionMode.DIRECTORIES) {
       fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -253,86 +257,8 @@ public final class SwingComponents {
 
     final int result = fileChooser.showOpenDialog(null);
     return (result == JFileChooser.APPROVE_OPTION)
-        ? Optional.of(fileChooser.getSelectedFile())
+        ? Optional.of(fileChooser.getSelectedFile().toPath())
         : Optional.empty();
-  }
-
-  /**
-   * Displays a file chooser from which the user can select a file to save.
-   *
-   * <p>The user will be asked to confirm the save if the selected file already exists.
-   *
-   * @param parent Determines the {@code Frame} in which the dialog is displayed; if {@code null},
-   *     or if {@code parent} has no {@code Frame}, a default {@code Frame} is used.
-   * @param fileExtension The extension of the file to save, with or without a leading period. This
-   *     extension will be automatically appended to the file name if not present.
-   * @param fileExtensionDescription The description of the file extension to be displayed in the
-   *     file chooser.
-   * @return The file selected by the user or empty if the user aborted the save.
-   */
-  public static Optional<File> promptSaveFile(
-      final Component parent, final String fileExtension, final String fileExtensionDescription) {
-    checkNotNull(fileExtension);
-    checkNotNull(fileExtensionDescription);
-
-    final JFileChooser fileChooser =
-        new JFileChooser() {
-          private static final long serialVersionUID = -136588718021703367L;
-
-          @Override
-          public void approveSelection() {
-            final File file = appendExtensionIfAbsent(getSelectedFile(), fileExtension);
-            setSelectedFile(file);
-            if (file.exists()) {
-              final int result =
-                  JOptionPane.showConfirmDialog(
-                      parent,
-                      String.format(
-                          "A file named \"%s\" already exists. Do you want to replace it?",
-                          file.getName()),
-                      "Confirm Save",
-                      JOptionPane.YES_NO_OPTION,
-                      JOptionPane.WARNING_MESSAGE);
-              if (result != JOptionPane.YES_OPTION) {
-                return;
-              }
-            }
-
-            super.approveSelection();
-          }
-        };
-
-    final String fileExtensionWithoutLeadingPeriod = extensionWithoutLeadingPeriod(fileExtension);
-    final FileFilter fileFilter =
-        new FileNameExtensionFilter(
-            String.format("%s, *.%s", fileExtensionDescription, fileExtensionWithoutLeadingPeriod),
-            fileExtensionWithoutLeadingPeriod);
-    fileChooser.setFileFilter(fileFilter);
-
-    final int result = fileChooser.showSaveDialog(parent);
-    return (result == JFileChooser.APPROVE_OPTION)
-        ? Optional.of(fileChooser.getSelectedFile())
-        : Optional.empty();
-  }
-
-  @VisibleForTesting
-  static File appendExtensionIfAbsent(final File file, final String extension) {
-    final String extensionWithLeadingPeriod = extensionWithLeadingPeriod(extension);
-    if (file.getName().toLowerCase().endsWith(extensionWithLeadingPeriod.toLowerCase())) {
-      return file;
-    }
-
-    return new File(file.getParentFile(), file.getName() + extensionWithLeadingPeriod);
-  }
-
-  @VisibleForTesting
-  static String extensionWithLeadingPeriod(final String extension) {
-    return extension.isEmpty() || extension.startsWith(PERIOD) ? extension : PERIOD + extension;
-  }
-
-  @VisibleForTesting
-  static String extensionWithoutLeadingPeriod(final String extension) {
-    return extension.startsWith(PERIOD) ? extension.substring(PERIOD.length()) : extension;
   }
 
   /**
@@ -452,5 +378,30 @@ public final class SwingComponents {
   public static void redraw(final Component component) {
     component.revalidate();
     component.repaint();
+  }
+
+  /**
+   * Creates a 'Help' button that opens a window displaying help text.
+   *
+   * @param helpWindowTitle The title displayed on the help window
+   * @param helpWindowText The (HTML) text displayed in the help window.
+   */
+  public static JButton helpButton(final String helpWindowTitle, final String helpWindowText) {
+    return new JButtonBuilder()
+        .title("Help")
+        .actionListener(
+            () ->
+                new JDialogBuilder()
+                    .title(helpWindowTitle)
+                    .add(
+                        new JPanelBuilder()
+                            .border(20)
+                            .borderLayout()
+                            .addCenter(new JLabel("<html>" + helpWindowText))
+                            .build())
+                    .escapeKeyCloses()
+                    .alwaysOnTop()
+                    .buildAndShow())
+        .build();
   }
 }

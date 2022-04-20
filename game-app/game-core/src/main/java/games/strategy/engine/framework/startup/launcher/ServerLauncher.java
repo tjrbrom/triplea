@@ -20,7 +20,7 @@ import games.strategy.net.Messengers;
 import games.strategy.net.websocket.ClientNetworkBridge;
 import games.strategy.triplea.UrlConstants;
 import games.strategy.triplea.settings.ClientSetting;
-import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -255,10 +255,10 @@ public class ServerLauncher implements ILauncher {
    * example, a disconnected participant will cause the game to be stopped, while a disconnected
    * observer will have no effect.
    */
-  public void connectionLost(final INode node) {
+  public void connectionLost(final INode droppedNode) {
     if (isLaunching) {
       // this is expected, we told the observer he couldn't join, so now we lose the connection
-      if (observersThatTriedToJoinDuringStartup.remove(node)) {
+      if (observersThatTriedToJoinDuringStartup.remove(droppedNode)) {
         return;
       }
       // a player has dropped out, abort
@@ -268,9 +268,15 @@ public class ServerLauncher implements ILauncher {
     }
     // if we lose a connection to a player, shut down the game (after saving) and go back to the
     // main screen
-    if (serverGame.getPlayerManager().isPlaying(node)) {
+    if (serverGame.getPlayerManager().isPlaying(droppedNode)) {
       if (serverGame.isGameSequenceRunning()) {
-        saveAndEndGame(node);
+        saveAndEndGame(droppedNode);
+        // Release any countries played by the player that dropped. The other seating assignments
+        // are preserved for the game lobby that will be shown.
+        for (final String countryName : serverGame.getPlayerManager().getPlayedBy(droppedNode)) {
+          serverModel.releasePlayer(countryName);
+        }
+        serverModel.persistPlayersToNodesMapping();
       } else {
         stopGame();
       }
@@ -291,17 +297,21 @@ public class ServerLauncher implements ILauncher {
   private void saveAndEndGame(final INode node) {
     // a hack, if headless save to the autosave to avoid polluting our savegames folder with a
     // million saves
-    final File f = launchAction.getAutoSaveFile();
+    final Path f = launchAction.getAutoSaveFile();
     try {
       serverGame.saveGame(f);
+      gameSelectorModel.setSaveGameFileToLoad(f);
     } catch (final Exception e) {
-      log.error("Failed to save game: " + f.getAbsolutePath(), e);
+      log.error("Failed to save game: " + f.toAbsolutePath(), e);
     }
 
     stopGame();
 
     final String message =
-        "Connection lost to:" + node.getName() + " game is over.  Game saved to:" + f.getName();
+        "Connection lost to:"
+            + node.getName()
+            + " game is over.  Game saved to:"
+            + f.getFileName().toString();
     launchAction.onEnd(message);
   }
 

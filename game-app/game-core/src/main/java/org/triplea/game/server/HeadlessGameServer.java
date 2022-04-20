@@ -18,13 +18,13 @@ import games.strategy.engine.framework.ArgParser;
 import games.strategy.engine.framework.GameDataManager;
 import games.strategy.engine.framework.GameRunner;
 import games.strategy.engine.framework.ServerGame;
-import games.strategy.engine.framework.map.file.system.loader.DownloadedMapsListing;
+import games.strategy.engine.framework.map.file.system.loader.InstalledMapsListing;
 import games.strategy.engine.framework.map.file.system.loader.ZippedMapsExtractor;
 import games.strategy.engine.framework.startup.mc.ServerModel;
 import games.strategy.engine.framework.startup.ui.panels.main.game.selector.GameSelectorModel;
 import games.strategy.triplea.settings.ClientSetting;
-import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Optional;
@@ -41,7 +41,7 @@ public class HeadlessGameServer {
   public static final String BOT_GAME_HOST_NAME_PREFIX = "Bot";
   private static HeadlessGameServer instance = null;
 
-  private final DownloadedMapsListing availableGames = DownloadedMapsListing.parseMapFiles();
+  private final InstalledMapsListing availableGames = InstalledMapsListing.parseMapFiles();
   private final GameSelectorModel gameSelectorModel = new GameSelectorModel();
   private final HeadlessServerSetupPanelModel setupPanelModel =
       new HeadlessServerSetupPanelModel(gameSelectorModel);
@@ -91,11 +91,7 @@ public class HeadlessGameServer {
     log.info("Requested to change map to: " + gameName);
     // don't change mid-game and only if we have the game
     if (setupPanelModel.getPanel() != null && game == null && availableGames.hasGame(gameName)) {
-      gameSelectorModel.load(
-          availableGames
-              .findGameXmlPathByGameName(gameName) //
-              .map(Path::toFile)
-              .orElseThrow());
+      gameSelectorModel.load(availableGames.findGameXmlPathByGameName(gameName).orElseThrow());
       log.info("Changed to game map: " + gameName);
     } else {
       log.info(
@@ -111,12 +107,12 @@ public class HeadlessGameServer {
     }
   }
 
-  public synchronized void loadGameSave(final File file) {
+  public synchronized void loadGameSave(final Path file) {
     Preconditions.checkArgument(
-        file.exists(), "File must exist to load it: " + file.getAbsolutePath());
+        Files.exists(file), "File must exist to load it: " + file.toAbsolutePath());
     // don't change mid-game
     if (setupPanelModel.getPanel() != null && game == null && gameSelectorModel.load(file)) {
-      log.info("Changed to save: " + file.getName());
+      log.info("Changed to save: " + file.getFileName());
     }
   }
 

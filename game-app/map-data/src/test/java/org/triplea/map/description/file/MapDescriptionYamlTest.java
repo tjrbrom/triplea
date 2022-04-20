@@ -5,7 +5,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -25,9 +24,8 @@ class MapDescriptionYamlTest {
   static List<MapDescriptionYaml> isValid() {
     return List.of(
         MapDescriptionYaml.builder()
-            .yamlFileLocation(new File("/path/on/disk/map.yml").toURI())
+            .yamlFileLocation(Path.of("/path/on/disk/map.yml"))
             .mapName("map name")
-            .mapVersion(1)
             .mapGameList(
                 List.of(
                     MapDescriptionYaml.MapGame.builder() //
@@ -59,9 +57,8 @@ class MapDescriptionYamlTest {
   void findGameNameFromXmlFileName_PositiveCase() {
     final MapDescriptionYaml mapDescriptionYaml =
         MapDescriptionYaml.builder()
-            .yamlFileLocation(new File("/path/on/disk/map.yml").toURI())
+            .yamlFileLocation(Path.of("/path/on/disk/map.yml"))
             .mapName("map name")
-            .mapVersion(1)
             .mapGameList(
                 List.of(
                     MapDescriptionYaml.MapGame.builder() //
@@ -71,7 +68,7 @@ class MapDescriptionYamlTest {
             .build();
 
     final String gameName =
-        mapDescriptionYaml.findGameNameFromXmlFileName(new File("/root/path.xml"));
+        mapDescriptionYaml.findGameNameFromXmlFileName(Path.of("/root/path.xml"));
 
     assertThat(gameName, is("game name"));
   }
@@ -80,9 +77,8 @@ class MapDescriptionYamlTest {
   void findGameNameFromXmlFileName_NegativeCase() {
     final MapDescriptionYaml mapDescriptionYaml =
         MapDescriptionYaml.builder()
-            .yamlFileLocation(new File("/path/on/disk/map.yml").toURI())
+            .yamlFileLocation(Path.of("/path/on/disk/map.yml"))
             .mapName("map name")
-            .mapVersion(1)
             .mapGameList(
                 List.of(
                     MapDescriptionYaml.MapGame.builder() //
@@ -93,6 +89,6 @@ class MapDescriptionYamlTest {
 
     assertThrows(
         IllegalStateException.class,
-        () -> mapDescriptionYaml.findGameNameFromXmlFileName(new File("DNE.xml")));
+        () -> mapDescriptionYaml.findGameNameFromXmlFileName(Path.of("DNE.xml")));
   }
 }

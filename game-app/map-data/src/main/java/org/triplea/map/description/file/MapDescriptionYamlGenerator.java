@@ -1,17 +1,13 @@
 package org.triplea.map.description.file;
 
 import com.google.common.base.Preconditions;
-import com.google.common.primitives.Ints;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
@@ -46,14 +42,11 @@ class MapDescriptionYamlGenerator {
    *     be generated a map.yml descriptor file. The map.yml file will be created at the map's
    *     content root, where the map data files are located.
    */
-  static Optional<File> generateYamlDataForMap(final Path mapFolder) {
+  static Optional<Path> generateYamlDataForMap(final Path mapFolder) {
     Preconditions.checkArgument(Files.exists(mapFolder));
     Preconditions.checkArgument(Files.isDirectory(mapFolder));
 
     final String mapName = mapFolder.getFileName().toString();
-
-    final Path propsFile = mapFolder.resolveSibling(mapName + ".properties");
-    final int downloadVersion = Files.exists(propsFile) ? readDownloadVersion(propsFile) : 0;
 
     final List<MapDescriptionYaml.MapGame> games = readGameInformationFromXmls(mapFolder);
     if (games.isEmpty()) {
@@ -64,9 +57,8 @@ class MapDescriptionYamlGenerator {
 
     final MapDescriptionYaml mapDescriptionYaml =
         MapDescriptionYaml.builder()
-            .yamlFileLocation(mapYmlTargetFileLocation.toUri())
+            .yamlFileLocation(mapYmlTargetFileLocation)
             .mapName(mapName)
-            .mapVersion(downloadVersion)
             .mapGameList(games)
             .build();
 
@@ -74,9 +66,10 @@ class MapDescriptionYamlGenerator {
       return Optional.empty();
     }
 
-    final Optional<File> writtenYmlFile =
+    final Optional<Path> writtenYmlFile =
         MapDescriptionYamlWriter.writeYmlPojoToFile(mapDescriptionYaml);
 
+    final Path propsFile = mapFolder.resolveSibling(mapName + ".properties");
     if (writtenYmlFile.isPresent() && Files.exists(propsFile)) {
       // clean up the properties file, it is no longer needed
       try {
@@ -96,29 +89,6 @@ class MapDescriptionYamlGenerator {
       log.info("Unable to parse XML file: " + xmlFile.toAbsolutePath(), e);
       return Optional.empty();
     }
-  }
-
-  /** Reads a properties file for the map version or zero if it cannot be read. */
-  private static int readDownloadVersion(final Path propsFile) {
-    final Properties props = new Properties();
-    try (InputStream fis = Files.newInputStream(propsFile)) {
-      props.load(fis);
-    } catch (final IllegalArgumentException | IOException e) {
-      log.error(
-          "Failed to read property file: " + propsFile.toAbsolutePath() + ", " + e.getMessage(), e);
-      return 0;
-    }
-
-    // mapVersion will likely be in a '2.0.0' format. We expect only the leading digit to ever
-    // be non-zero. This is because we get an integer from the download description, but this
-    // was written as 'Version' object which appends trailing zeros.
-    return Optional.ofNullable(props.getProperty("mapVersion"))
-        .flatMap(
-            version ->
-                Arrays.stream(version.split("\\.")) //
-                    .findFirst()
-                    .map(Ints::tryParse))
-        .orElse(0);
   }
 
   /**

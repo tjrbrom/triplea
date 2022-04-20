@@ -1,7 +1,9 @@
 package org.triplea.debug;
 
 import com.google.common.base.Preconditions;
+import games.strategy.triplea.settings.ClientSetting;
 import java.awt.Dialog;
+import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -13,7 +15,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import org.triplea.debug.error.reporting.UploadDecisionModule;
 import org.triplea.http.client.error.report.ErrorReportClient;
-import org.triplea.live.servers.LiveServersFetcher;
 import org.triplea.swing.JButtonBuilder;
 import org.triplea.swing.JEditorPaneWithClickableLinks;
 import org.triplea.swing.SwingComponents;
@@ -31,12 +32,12 @@ import org.triplea.swing.jpanel.JPanelBuilder;
  * error message is intended to be user friendly, clicking 'show details' would show full details of
  * all error messages.
  */
-@SuppressWarnings("ImmutableEnumChecker") // Enum singleton pattern
 public enum ErrorMessage {
   INSTANCE;
 
-  private final JFrame windowReference = new JFrame("TripleA Error");
-  private final JEditorPaneWithClickableLinks errorMessage = new JEditorPaneWithClickableLinks("");
+  private final JFrame windowReference = new JFrame("Error");
+  private final JEditorPaneWithClickableLinks errorMessagePane =
+      new JEditorPaneWithClickableLinks("");
   private final AtomicBoolean isVisible = new AtomicBoolean(false);
   private volatile boolean enableErrorPopup = false;
 
@@ -48,6 +49,7 @@ public enum ErrorMessage {
 
   ErrorMessage() {
     windowReference.setAlwaysOnTop(true);
+    windowReference.setMinimumSize(new Dimension(350, 150));
     windowReference.setModalExclusionType(Dialog.ModalExclusionType.APPLICATION_EXCLUDE);
     windowReference.addWindowListener(
         new WindowAdapter() {
@@ -56,18 +58,12 @@ public enum ErrorMessage {
             hide();
           }
         });
-    errorMessage.setBorder(new EmptyBorder(5, 20, 5, 10));
+    errorMessagePane.setBorder(new EmptyBorder(5, 20, 5, 10));
     windowReference.add(
         new JPanelBuilder()
             .border(10)
             .borderLayout()
-            .addCenter(
-                new JPanelBuilder()
-                    .boxLayoutHorizontal()
-                    .addHorizontalGlue()
-                    .add(SwingComponents.newJScrollPane(errorMessage))
-                    .addHorizontalGlue()
-                    .build())
+            .addCenter(SwingComponents.newJScrollPane(errorMessagePane))
             .addSouth(
                 new JPanelBuilder()
                     .border(20, 0, 0, 0)
@@ -104,13 +100,13 @@ public enum ErrorMessage {
    * Note, we hide and reveal the error message dialog instead of creating and disposing it to avoid
    * swing component creation threading issues.
    */
-  public static void show(final LoggerRecord record) {
+  public static void show(final LoggerRecord loggerRecord) {
     if (INSTANCE.enableErrorPopup && INSTANCE.isVisible.compareAndSet(false, true)) {
-      INSTANCE.setUploadRecord(record);
+      INSTANCE.setUploadRecord(loggerRecord);
 
       SwingUtilities.invokeLater(
           () -> {
-            INSTANCE.errorMessage.setText(new ErrorMessageFormatter().apply(record));
+            INSTANCE.errorMessagePane.setText(new ErrorMessageFormatter().apply(loggerRecord));
             INSTANCE.windowReference.pack();
             INSTANCE.windowReference.setLocationRelativeTo(null);
             INSTANCE.windowReference.setVisible(true);
@@ -119,12 +115,7 @@ public enum ErrorMessage {
   }
 
   private void setUploadRecord(final LoggerRecord logRecord) {
-    new LiveServersFetcher()
-        .lobbyUriForCurrentVersion()
-        .ifPresentOrElse(
-            uri -> activateUploadErrorReportButton(uri, logRecord),
-            // if no internet connection, do not show 'upload button' as it will not work anyways.
-            () -> INSTANCE.uploadButton.setVisible(false));
+    activateUploadErrorReportButton(ClientSetting.lobbyUri.getValueOrThrow(), logRecord);
   }
 
   private void activateUploadErrorReportButton(final URI lobbyUri, final LoggerRecord logRecord) {

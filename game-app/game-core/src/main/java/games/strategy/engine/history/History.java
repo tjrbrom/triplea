@@ -5,18 +5,26 @@ import games.strategy.engine.data.CompositeChange;
 import games.strategy.engine.data.GameData;
 import games.strategy.engine.data.GamePlayer;
 import games.strategy.triplea.ui.history.HistoryPanel;
+import games.strategy.ui.Util;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
-import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
 /**
  * A history of the game. Stored as a tree, the data is organized as Root - Round - Step - Event -
- * Child Round - the current round in the game, eg 1, 2, 3 Step - the current step, eg Britain
- * Combat Move Event - an event that happened in the game, eg Russia buys 8 inf.
+ * Child
+ *
+ * <dl>
+ *   <dt>Round
+ *   <dd>the current round in the game, eg 1, 2, 3
+ *   <dt>Step
+ *   <dd>the current step, e.g. Britain Combat Move
+ *   <dt>Event
+ *   <dd>an event that happened in the game, e.gj Russia buys 8 inf
+ * </dl>
  */
 public class History extends DefaultTreeModel {
   private static final long serialVersionUID = -1769876896869L;
@@ -33,8 +41,8 @@ public class History extends DefaultTreeModel {
   }
 
   private void assertCorrectThread() {
-    if (gameData.areChangesOnlyInSwingEventThread() && !SwingUtilities.isEventDispatchThread()) {
-      throw new IllegalStateException("Wrong thread");
+    if (gameData.areChangesOnlyInSwingEventThread()) {
+      Util.ensureOnEventDispatchThread();
     }
   }
 

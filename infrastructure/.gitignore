@@ -1,4 +1,4 @@
-.vagrant
+vagrant/.vagrant
 .ansible
 *-console.log
 ansible/*.retry
@@ -8,4 +8,4 @@ ansible/roles/database/flyway/files/
 
 vault_password
 secret
-
+.include/mitogen-0.2.9

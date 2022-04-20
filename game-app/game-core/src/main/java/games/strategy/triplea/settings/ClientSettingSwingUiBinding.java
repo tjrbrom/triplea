@@ -2,15 +2,14 @@ package games.strategy.triplea.settings;
 
 import static games.strategy.triplea.settings.SelectionComponentFactory.booleanRadioButtons;
 import static games.strategy.triplea.settings.SelectionComponentFactory.diceRollerOverrideSelection;
-import static games.strategy.triplea.settings.SelectionComponentFactory.filePath;
 import static games.strategy.triplea.settings.SelectionComponentFactory.folderPath;
 import static games.strategy.triplea.settings.SelectionComponentFactory.intValueRange;
-import static games.strategy.triplea.settings.SelectionComponentFactory.lobbyOverrideSelection;
 import static games.strategy.triplea.settings.SelectionComponentFactory.proxySettings;
 import static games.strategy.triplea.settings.SelectionComponentFactory.selectionBox;
 
 import games.strategy.engine.framework.lookandfeel.LookAndFeel;
 import games.strategy.triplea.UrlConstants;
+import games.strategy.triplea.settings.lobby.LobbySelectionViewFactory;
 import java.util.Collection;
 import javax.swing.JComponent;
 import javax.swing.UIManager;
@@ -268,31 +267,10 @@ enum ClientSettingSwingUiBinding implements GameSettingUiBinding<JComponent> {
     }
   },
 
-  USE_MAPS_SERVER_BETA_FEATURE(
-      "Use Maps Server (Beta)",
-      SettingType.TESTING,
-      "Toggles whether to use the in 'beta' map server") {
-    @Override
-    public SelectionComponent<JComponent> newSelectionComponent() {
-      return booleanRadioButtons(ClientSetting.useMapsServerBetaFeature);
-    }
-  },
-
-  MAP_LIST_OVERRIDE_BINDING(
-      "Map List Override",
-      SettingType.TESTING,
-      "Overrides the location of the map listing file. You can, for example, download "
-          + "a copy of the listing file, update it, and put the path to that file here.") {
-    @Override
-    public SelectionComponent<JComponent> newSelectionComponent() {
-      return filePath(ClientSetting.mapListOverride);
-    }
-  },
-
   LOBBY_URI_OVERRIDE_BINDING("Lobby URI Override", SettingType.TESTING, "Overrides the lobby URI") {
     @Override
     public SelectionComponent<JComponent> newSelectionComponent() {
-      return lobbyOverrideSelection();
+      return LobbySelectionViewFactory.build();
     }
   },
 

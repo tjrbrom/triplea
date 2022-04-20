@@ -15,7 +15,6 @@ import java.awt.event.ActionListener;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -296,11 +295,6 @@ final class SelectionComponentFactory {
     };
   }
 
-  /** File selection prompt. */
-  static SelectionComponent<JComponent> filePath(final ClientSetting<Path> clientSetting) {
-    return selectFile(clientSetting, SwingComponents.FolderSelectionMode.FILES);
-  }
-
   private static SelectionComponent<JComponent> selectFile(
       final ClientSetting<Path> clientSetting,
       final SwingComponents.FolderSelectionMode folderSelectionMode) {
@@ -313,7 +307,7 @@ final class SelectionComponentFactory {
               .actionListener(
                   () ->
                       SwingComponents.showJFileChooser(folderSelectionMode)
-                          .ifPresent(file -> field.setText(file.getAbsolutePath())))
+                          .ifPresent(file -> field.setText(file.toAbsolutePath().toString())))
               .build();
 
       @Override
@@ -331,7 +325,7 @@ final class SelectionComponentFactory {
       @Override
       public void save(final SaveContext context) {
         final String value = field.getText();
-        context.setValue(clientSetting, value.isEmpty() ? null : Paths.get(value));
+        context.setValue(clientSetting, value.isEmpty() ? null : Path.of(value));
       }
 
       @Override
@@ -419,93 +413,6 @@ final class SelectionComponentFactory {
       @Override
       public void reset() {
         setComboBoxSelectedItem(comboBox, clientSetting::getValue);
-      }
-    };
-  }
-
-  static SelectionComponent<JComponent> lobbyOverrideSelection() {
-    final String localhost = "http://localhost:8080";
-
-    final JTextField uriField = new JTextFieldBuilder().build();
-
-    final JRadioButton remoteServer = new JRadioButton("Remote Server");
-
-    final boolean useOverride = ClientSetting.lobbyUseLocalhostOverride.getSetting();
-    remoteServer.setSelected(!useOverride);
-    uriField.setEnabled(!useOverride);
-    uriField.setText(ClientSetting.lobbyUriOverride.getValue().map(URI::toString).orElse(""));
-
-    final JRadioButton localhostServer = new JRadioButton("Local Server");
-    localhostServer.setSelected(useOverride);
-    localhostServer.addActionListener(
-        e -> {
-          uriField.setText(localhost);
-          uriField.setEnabled(false);
-        });
-    remoteServer.addActionListener(
-        e -> {
-          uriField.setText("");
-          uriField.setEnabled(true);
-        });
-
-    final ButtonGroup buttonGroup = new ButtonGroup();
-    buttonGroup.add(remoteServer);
-    buttonGroup.add(localhostServer);
-
-    final var selectionPanel =
-        new JPanelBuilder()
-            .boxLayoutVertical()
-            .add(new JPanelBuilder().add(remoteServer).add(localhostServer).build())
-            .add(uriField)
-            .build();
-
-    return new SelectionComponent<>() {
-      @Override
-      public JComponent getUiComponent() {
-        return selectionPanel;
-      }
-
-      @Override
-      public void save(final SaveContext context) {
-        context.setValue(ClientSetting.lobbyUseLocalhostOverride, localhostServer.isSelected());
-        if (localhostServer.isSelected()) {
-          context.setValue(ClientSetting.lobbyUriOverride, URI.create(localhost));
-          uriField.setText(localhost);
-        } else if (uriField.getText().isEmpty()) {
-          context.setValue(ClientSetting.lobbyUriOverride, null);
-        } else {
-          try {
-            final URI uri = new URI(uriField.getText().trim());
-
-            if (uriField.getText().trim().endsWith("/")) {
-              showInvalidUriError("URI must not contain trailing '/'", uriField.getText());
-            } else {
-              context.setValue(ClientSetting.lobbyUriOverride, uri);
-            }
-          } catch (final URISyntaxException e) {
-            showInvalidUriError(e.getMessage(), uriField.getText());
-          }
-        }
-      }
-
-      private void showInvalidUriError(final String errorMessage, final String fieldValue) {
-        SwingComponents.showError(
-            null, "Invalid Override URI", "Invalid URI, " + errorMessage + ": " + fieldValue);
-      }
-
-      @Override
-      public void resetToDefault() {
-        remoteServer.setSelected(true);
-        uriField.setText("");
-        uriField.setEnabled(true);
-      }
-
-      @Override
-      public void reset() {
-        remoteServer.setSelected(!ClientSetting.lobbyUseLocalhostOverride.getValueOrThrow());
-        localhostServer.setSelected(ClientSetting.lobbyUseLocalhostOverride.getValueOrThrow());
-        uriField.setText(ClientSetting.lobbyUriOverride.getValue().map(URI::toString).orElse(""));
-        uriField.setEnabled(!ClientSetting.lobbyUseLocalhostOverride.getValue().orElse(false));
       }
     };
   }

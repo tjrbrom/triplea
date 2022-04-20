@@ -8,20 +8,21 @@ import games.strategy.engine.framework.map.download.DownloadFile.DownloadState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.triplea.http.client.maps.listing.MapDownloadItem;
 
 class DownloadFileTest {
   @Test
   void testBasicStartCancel() {
-    final DownloadFileDescription downloadFileDescription =
-        DownloadFileDescription.builder()
-            .url("url")
+    final MapDownloadItem mapDownloadItem =
+        MapDownloadItem.builder()
+            .downloadUrl("url")
+            .previewImageUrl("preview-url")
             .description("description")
             .mapName("mapName")
-            .version(0)
-            .mapCategory(DownloadFileDescription.MapCategory.BEST)
+            .lastCommitDateEpochMilli(60L)
+            .downloadSizeInBytes(100L)
             .build();
-    final DownloadFile testObj =
-        new DownloadFile(downloadFileDescription, mock(DownloadListener.class));
+    final DownloadFile testObj = new DownloadFile(mapDownloadItem, mock(DownloadListener.class));
     assertThat(testObj.getDownloadState(), is(DownloadState.NOT_STARTED));
 
     testObj.startAsyncDownload();

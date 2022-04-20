@@ -1,18 +1,18 @@
 package games.strategy.engine.auto.update;
 
 import com.google.common.annotations.VisibleForTesting;
-import games.strategy.engine.framework.map.download.DownloadFileDescription;
 import games.strategy.engine.framework.map.download.DownloadMapsWindow;
-import games.strategy.engine.framework.map.file.system.loader.DownloadedMapsListing;
+import games.strategy.engine.framework.map.file.system.loader.InstalledMapsListing;
 import games.strategy.engine.framework.map.listing.MapListingFetcher;
 import games.strategy.triplea.settings.ClientSetting;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
+import org.triplea.http.client.maps.listing.MapDownloadItem;
 import org.triplea.swing.SwingComponents;
 
 @UtilityClass
@@ -43,8 +43,7 @@ class UpdatedMapsCheck {
       return;
     }
 
-    final List<DownloadFileDescription> availableToDownloadMaps =
-        MapListingFetcher.getMapDownloadList();
+    final List<MapDownloadItem> availableToDownloadMaps = MapListingFetcher.getMapDownloadList();
 
     if (availableToDownloadMaps.isEmpty()) {
       // A failure happened getting maps. User is already notified.
@@ -52,47 +51,24 @@ class UpdatedMapsCheck {
     }
 
     final Collection<String> outOfDateMapNames =
-        computeOutOfDateMaps(
-            availableToDownloadMaps,
-            name -> DownloadedMapsListing.parseMapFiles().getMapVersionByName(name));
+        InstalledMapsListing.parseMapFiles()
+            .findOutOfDateMaps(availableToDownloadMaps)
+            .keySet()
+            .stream()
+            .map(MapDownloadItem::getMapName)
+            .sorted(Comparator.comparing(String::toUpperCase))
+            .collect(Collectors.toList());
 
     if (!outOfDateMapNames.isEmpty()) {
       promptUserToUpdateMaps(outOfDateMapNames);
     }
   }
 
-  /**
-   * Computes maps that are out of date.
-   *
-   * @param availableToDownloadMaps List of maps that are available for download.
-   * @param mapVersionLookup Function given a map name returns installed map version (or empty if
-   *     the map is not installed).
-   * @return Set of map names that are installed where the available version is greater than the
-   *     installed version.
-   */
-  public static Collection<String> computeOutOfDateMaps(
-      final Collection<DownloadFileDescription> availableToDownloadMaps,
-      final Function<String, Integer> mapVersionLookup) {
-
-    final Collection<String> outOfDateMapNames = new ArrayList<>();
-
-    // Loop over all available maps, check if we have that map present, its version,
-    // and remember any whose version is less than what is available.
-    for (final DownloadFileDescription availableMap : availableToDownloadMaps) {
-      final int installedVersion = mapVersionLookup.apply(availableMap.getMapName());
-      if (installedVersion < availableMap.getVersion()) {
-        outOfDateMapNames.add(availableMap.getMapName());
-      }
-    }
-    return outOfDateMapNames;
-  }
-
   private static void promptUserToUpdateMaps(final Collection<String> outOfDateMapNames) {
     final StringBuilder text = new StringBuilder();
     text.append(
-        "<html>Some of the maps you have are out of date, and newer versions of those "
-            + "maps exist.<br><br>");
-    text.append("Would you like to update (re-download) the following maps now?<br><ul>");
+        "<html>The following maps have updates available."
+            + "<br>Would you like to update them now?<br><ul>");
     for (final String mapName : outOfDateMapNames) {
       text.append("<li> ").append(mapName).append("</li>");
     }

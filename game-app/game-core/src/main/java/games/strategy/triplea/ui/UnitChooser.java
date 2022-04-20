@@ -1,7 +1,11 @@
 package games.strategy.triplea.ui;
 
+import com.google.common.annotations.VisibleForTesting;
 import games.strategy.engine.data.Unit;
+import games.strategy.triplea.Properties;
+import games.strategy.triplea.ResourceLoader;
 import games.strategy.triplea.delegate.data.CasualtyList;
+import games.strategy.triplea.image.UnitImageFactory;
 import games.strategy.triplea.image.UnitImageFactory.ImageKey;
 import games.strategy.triplea.util.UnitCategory;
 import games.strategy.triplea.util.UnitOwner;
@@ -10,26 +14,47 @@ import games.strategy.ui.ScrollableTextField;
 import games.strategy.ui.ScrollableTextFieldListener;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
+import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import javax.annotation.Nonnull;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import lombok.experimental.UtilityClass;
+import org.triplea.java.Postconditions;
 import org.triplea.java.collections.IntegerMap;
+import org.triplea.swing.jpanel.GridBagConstraintsAnchor;
+import org.triplea.swing.jpanel.GridBagConstraintsBuilder;
+import org.triplea.swing.jpanel.GridBagConstraintsFill;
 
+/**
+ * Shows units to choose including the controls to make the choice. Units are grouped by owner, type
+ * and - depending on the respective context - additional attributes like damage, movement points
+ * left, or whether they can be withdrawn.
+ *
+ * <p>The dialog is used by various use cases like placing units or choosing which units take hits
+ * in a battle round.
+ */
 public final class UnitChooser extends JPanel {
   private static final long serialVersionUID = -4667032237550267682L;
-  private final List<ChooserEntry> entries = new ArrayList<>();
+
+  private static final Insets emptyInsets = new Insets(0, 0, 0, 0);
+
+  @VisibleForTesting public final List<ChooserEntry> entries = new ArrayList<>();
   private final Map<Unit, Collection<Unit>> dependents;
   private JTextArea title;
   private int total = -1;
@@ -37,7 +62,6 @@ public final class UnitChooser extends JPanel {
   private final boolean allowMultipleHits;
   private JButton autoSelectButton;
   private JButton selectNoneButton;
-  private final UiContext uiContext;
   private final Predicate<Collection<Unit>> match;
   private final ScrollableTextFieldListener textFieldListener =
       new ScrollableTextFieldListener() {
@@ -50,6 +74,8 @@ public final class UnitChooser extends JPanel {
           }
         }
       };
+
+  private boolean spaceRequiredForNonWithdrawableIcon = false;
 
   UnitChooser(
       final Collection<Unit> units,
@@ -81,7 +107,7 @@ public final class UnitChooser extends JPanel {
       final Predicate<Collection<Unit>> match) {
     dependents = dependent;
     this.allowMultipleHits = allowMultipleHits;
-    this.uiContext = uiContext;
+    NonWithdrawableFactory.makeSureNonWithdrawableFactoryMatchesUiContext(uiContext);
     this.match = match;
   }
 
@@ -89,6 +115,8 @@ public final class UnitChooser extends JPanel {
       final Collection<Unit> units,
       final CasualtyList defaultSelections,
       final Map<Unit, Collection<Unit>> dependent,
+      final boolean retreatPossibility,
+      final boolean movementForAirUnitsOnly,
       final boolean allowMultipleHits,
       final UiContext uiContext) {
     this(dependent, allowMultipleHits, uiContext, null);
@@ -97,7 +125,11 @@ public final class UnitChooser extends JPanel {
     combinedList.addAll(defaultSelections.getKilled());
     createEntries(
         units,
-        UnitSeparator.SeparatorCategories.builder().dependents(dependent).build(),
+        UnitSeparator.SeparatorCategories.builder()
+            .dependents(dependent)
+            .retreatPossibility(retreatPossibility)
+            .movementForAirUnitsOnly(movementForAirUnitsOnly)
+            .build(),
         combinedList);
     layoutEntries();
   }
@@ -201,6 +233,25 @@ public final class UnitChooser extends JPanel {
       final Collection<Unit> units,
       final UnitSeparator.SeparatorCategories separatorCategories,
       final Collection<Unit> defaultSelections) {
+    spaceRequiredForNonWithdrawableIcon =
+        units.stream()
+            .anyMatch(
+                unit -> {
+                  Postconditions.assertState(
+                      unit.getOwner() != null,
+                      "Contract problem: All units in UnitChooser are expected to have an owner,"
+                          + " but now one appeared to how none.");
+
+                  Postconditions.assertState(
+                      unit.getOwner().getData() != null,
+                      "All units owners are expected to relate to a gameData object,"
+                          + "but now one appeared to how none.");
+
+                  return Properties.getPartialAmphibiousRetreat(
+                          unit.getOwner().getData().getProperties())
+                      && unit.getWasAmphibious();
+                });
+
     final Collection<UnitCategory> categories =
         UnitSeparator.categorize(units, separatorCategories);
     final Collection<UnitCategory> defaultSelectionsCategorized =
@@ -223,9 +274,7 @@ public final class UnitChooser extends JPanel {
   }
 
   private void addCategory(final UnitCategory category, final int defaultValue) {
-    final ChooserEntry entry =
-        new ChooserEntry(
-            category, total, textFieldListener, allowMultipleHits, defaultValue, uiContext);
+    final ChooserEntry entry = new ChooserEntry(category, defaultValue);
     entries.add(entry);
   }
 
@@ -236,7 +285,7 @@ public final class UnitChooser extends JPanel {
     title.setEditable(false);
     title.setWrapStyleWord(true);
     title.setVisible(false);
-    final Insets nullInsets = new Insets(0, 0, 0, 0);
+    final Insets emptyInsets = new Insets(0, 0, 0, 0);
     final Dimension buttonSize = new Dimension(80, 20);
     selectNoneButton = new JButton("None");
     selectNoneButton.setPreferredSize(buttonSize);
@@ -253,7 +302,7 @@ public final class UnitChooser extends JPanel {
             0.5,
             GridBagConstraints.EAST,
             GridBagConstraints.HORIZONTAL,
-            nullInsets,
+            emptyInsets,
             0,
             0));
     selectNoneButton.addActionListener(e -> selectNone());
@@ -274,7 +323,7 @@ public final class UnitChooser extends JPanel {
             0.5,
             GridBagConstraints.EAST,
             GridBagConstraints.NONE,
-            nullInsets,
+            emptyInsets,
             0,
             0));
     rowIndex++;
@@ -289,7 +338,7 @@ public final class UnitChooser extends JPanel {
             0.5,
             GridBagConstraints.WEST,
             GridBagConstraints.HORIZONTAL,
-            nullInsets,
+            emptyInsets,
             0,
             0));
     if (match != null) {
@@ -393,30 +442,24 @@ public final class UnitChooser extends JPanel {
     total = -1;
   }
 
-  private static final class ChooserEntry {
-    private static final Insets nullInsets = new Insets(0, 0, 0, 0);
-
-    private final UnitCategory category;
-    private final ScrollableTextFieldListener hitTextFieldListener;
-    private final boolean hasMultipleHits;
+  /**
+   * The <code>UnitChooser</code> dialog essentially shows a list of <code>ChooserEntry</code>, one
+   * for each <code>UnitCategory</code> the set of units to be chosen from is structured in.
+   */
+  @VisibleForTesting
+  public final class ChooserEntry {
+    @VisibleForTesting public final UnitCategory category;
     private final List<Integer> defaultHits;
     private final List<ScrollableTextField> hitTexts;
     private final List<JLabel> hitLabel = new ArrayList<>();
     private int leftToSelect;
-    private final UiContext uiContext;
+    private final boolean hasMultipleHits;
 
-    ChooserEntry(
-        final UnitCategory category,
-        final int leftToSelect,
-        final ScrollableTextFieldListener listener,
-        final boolean allowTwoHit,
-        final int defaultValue,
-        final UiContext uiContext) {
-      hitTextFieldListener = listener;
+    ChooserEntry(final UnitCategory category, final int defaultValue) {
       this.category = category;
-      this.leftToSelect = leftToSelect < 0 ? category.getUnits().size() : leftToSelect;
+      this.leftToSelect = total < 0 ? category.getUnits().size() : total;
       hasMultipleHits =
-          allowTwoHit
+          allowMultipleHits
               && category.getHitPoints() > 1
               && category.getDamaged() < category.getHitPoints() - 1;
       hitTexts = new ArrayList<>(Math.max(1, category.getHitPoints() - category.getDamaged()));
@@ -431,97 +474,46 @@ public final class UnitChooser extends JPanel {
         hitsUsedSoFar += hitsToUse;
         defaultHits.add(hitsToUse);
       }
-      this.uiContext = uiContext;
     }
 
     void createComponents(final JPanel panel, final int rowIndex) {
       int gridx = 0;
-      for (int i = 0;
-          i < (hasMultipleHits ? Math.max(1, category.getHitPoints() - category.getDamaged()) : 1);
-          i++) {
+      int iterations =
+          (hasMultipleHits ? Math.max(1, category.getHitPoints() - category.getDamaged()) : 1);
+      for (int i = 0; i < iterations; i++) {
+        final boolean damaged = i > 0;
         final ScrollableTextField scroll = new ScrollableTextField(0, category.getUnits().size());
         hitTexts.add(scroll);
         scroll.setValue(defaultHits.get(i));
-        scroll.addChangeListener(hitTextFieldListener);
+        scroll.addChangeListener(textFieldListener);
         final JLabel label = new JLabel("x" + category.getUnits().size());
         hitLabel.add(label);
+        final var builder =
+            new GridBagConstraintsBuilder(gridx, rowIndex)
+                .gridWidth(1)
+                .gridHeight(1)
+                .anchor(GridBagConstraintsAnchor.WEST)
+                .fill(GridBagConstraintsFill.HORIZONTAL);
         panel.add(
-            new UnitChooserEntryIcon(i > 0, uiContext),
-            new GridBagConstraints(
-                gridx++,
-                rowIndex,
-                1,
-                1,
-                0,
-                0,
-                GridBagConstraints.WEST,
-                GridBagConstraints.HORIZONTAL,
-                new Insets(0, (i == 0 ? 0 : 8), 0, 0),
-                0,
-                0));
+            new UnitChooserEntryIcon(damaged),
+            builder.insets(new Insets(0, (i == 0 ? 0 : 8), 0, 0)).gridX(gridx++).build());
         if (i == 0) {
+          // -1 indicates a transport whose movement ended due to unloading already.
           if (category.getMovement().compareTo(new BigDecimal(-1)) != 0) {
             panel.add(
                 new JLabel("mvt " + category.getMovement()),
-                new GridBagConstraints(
-                    gridx,
-                    rowIndex,
-                    1,
-                    1,
-                    0,
-                    0,
-                    GridBagConstraints.WEST,
-                    GridBagConstraints.HORIZONTAL,
-                    new Insets(0, 4, 0, 4),
-                    0,
-                    0));
+                builder.insets(new Insets(0, 4, 0, 4)).gridX(gridx).build());
           }
+          gridx++; // Increment outside the if to avoid misalignment.
           if (category.getTransportCost() != -1) {
             panel.add(
                 new JLabel("cst " + category.getTransportCost()),
-                new GridBagConstraints(
-                    gridx,
-                    rowIndex,
-                    1,
-                    1,
-                    0,
-                    0,
-                    GridBagConstraints.WEST,
-                    GridBagConstraints.HORIZONTAL,
-                    new Insets(0, 4, 0, 4),
-                    0,
-                    0));
+                builder.insets(new Insets(0, 4, 0, 4)).gridX(gridx).build());
           }
-          gridx++;
+          gridx++; // Increment outside the if to avoid misalignment.
         }
-        panel.add(
-            label,
-            new GridBagConstraints(
-                gridx++,
-                rowIndex,
-                1,
-                1,
-                0,
-                0,
-                GridBagConstraints.WEST,
-                GridBagConstraints.HORIZONTAL,
-                nullInsets,
-                0,
-                0));
-        panel.add(
-            scroll,
-            new GridBagConstraints(
-                gridx++,
-                rowIndex,
-                1,
-                1,
-                0,
-                0,
-                GridBagConstraints.WEST,
-                GridBagConstraints.HORIZONTAL,
-                new Insets(0, 4, 0, 0),
-                0,
-                0));
+        panel.add(label, builder.insets(emptyInsets).gridX(gridx++).build());
+        panel.add(scroll, builder.insets(new Insets(0, 4, 0, 0)).gridX(gridx++).build());
         scroll.addChangeListener(field -> updateLeftToSelect());
       }
       updateLeftToSelect();
@@ -604,14 +596,21 @@ public final class UnitChooser extends JPanel {
       hitTexts.forEach(field -> field.addChangeListener(listener));
     }
 
-    private class UnitChooserEntryIcon extends JComponent {
+    /**
+     * Represents units of a particular <code>UnitCategory</code> (maybe under particular
+     * circumstances like carrying some other units or being withdrawable) by showing the image of
+     * that particular <code>UnitCategory</code> (maybe decorated by some images indicating the
+     * particular circumstances).
+     */
+    @VisibleForTesting
+    public class UnitChooserEntryIcon extends JComponent {
       private static final long serialVersionUID = 591598594559651745L;
-      private final boolean forceDamaged;
-      private final UiContext uiContext;
+      private static final int PADDING = 6;
+      @VisibleForTesting public boolean damaged;
 
-      UnitChooserEntryIcon(final boolean forceDamaged, final UiContext uiContext) {
-        this.forceDamaged = forceDamaged;
-        this.uiContext = uiContext;
+      UnitChooserEntryIcon(final boolean damaged) {
+        this.damaged = damaged;
+
         MapUnitTooltipManager.setUnitTooltip(
             this, category.getType(), category.getOwner(), category.getUnits().size());
       }
@@ -619,24 +618,23 @@ public final class UnitChooser extends JPanel {
       @Override
       public void paint(final Graphics g) {
         super.paint(g);
-        uiContext
-            .getUnitImageFactory()
-            .getImage(
+
+        Image image =
+            NonWithdrawableFactory.getImage(
                 ImageKey.builder()
                     .type(category.getType())
                     .player(category.getOwner())
-                    .damaged(forceDamaged || category.hasDamageOrBombingUnitDamage())
+                    .damaged(damaged || category.hasDamageOrBombingUnitDamage())
                     .disabled(category.getDisabled())
-                    .build())
-            .ifPresent(image -> g.drawImage(image, 0, 0, this));
+                    .build(),
+                /*nonWithdrawable =*/ !category.getCanRetreat());
+        g.drawImage(image, 0, 0, this);
 
         int index = 1;
         for (final UnitOwner holder : category.getDependents()) {
-          final int x = uiContext.getUnitImageFactory().getUnitImageWidth() * index;
-          uiContext
-              .getUnitImageFactory()
-              .getImage(ImageKey.of(holder))
-              .ifPresent(image1 -> g.drawImage(image1, x, 0, this));
+          final int x = NonWithdrawableFactory.getUnitImageWidth() * index;
+          Image nonWithdrawableImage = NonWithdrawableFactory.getImage(ImageKey.of(holder), false);
+          g.drawImage(nonWithdrawableImage, x, 0, this);
           index++;
         }
       }
@@ -648,12 +646,180 @@ public final class UnitChooser extends JPanel {
 
       @Override
       public Dimension getPreferredSize() {
-        final int width =
-            uiContext.getUnitImageFactory().getUnitImageWidth()
-                * (1 + category.getDependents().size());
-        final int height = uiContext.getUnitImageFactory().getUnitImageHeight();
+        int width =
+            NonWithdrawableFactory.getUnitImageWidth() * (1 + category.getDependents().size());
+
+        if (spaceRequiredForNonWithdrawableIcon) {
+          width += NonWithdrawableFactory.getNonWithdrawableImageWidth() + PADDING;
+        }
+
+        final int height = NonWithdrawableFactory.getUnitImageHeight();
         return new Dimension(width, height);
       }
+    }
+  }
+
+  /** delivers unit images decorated with non-withdrawable images */
+  @UtilityClass
+  static final class NonWithdrawableFactory {
+    private ResourceLoader resourceLoader = null;
+    private UnitImageFactory unitImageFactory = null;
+    private final Map<Image, Image> images = new HashMap<>();
+    private BufferedImage nonWithdrawableImage = null;
+    private UnitImageFactory unitImageFactoryForDecoratedImages = null;
+
+    public void makeSureNonWithdrawableFactoryMatchesUiContext(final UiContext uiContext) {
+      if (resourceLoader != UiContext.getResourceLoader()
+          || unitImageFactory != uiContext.getUnitImageFactory()) {
+        images.clear();
+        resourceLoader = UiContext.getResourceLoader();
+        unitImageFactory = uiContext.getUnitImageFactory();
+        nonWithdrawableImage = null;
+        unitImageFactoryForDecoratedImages = null;
+      }
+    }
+
+    private Image getImage(final ImageKey imageKey, final boolean nonWithdrawable) {
+      final Image undecoratedImage = unitImageFactoryForDecoratedImages.getImage(imageKey);
+
+      return nonWithdrawable ? getImage(undecoratedImage) : undecoratedImage;
+    }
+
+    private Image getImage(final Image undecoratedImage) {
+      final var cachedImage = images.get(undecoratedImage);
+      if (cachedImage != null) {
+        return cachedImage;
+      }
+
+      final var unitImageWithNonWithdrawableImage =
+          new BufferedImage(
+              getXofNonWithdrawableImage() + getNonWithdrawableImage().getWidth(),
+              unitImageFactoryForDecoratedImages.getUnitImageHeight(),
+              BufferedImage.TYPE_INT_ARGB);
+
+      final Graphics2D g2d = unitImageWithNonWithdrawableImage.createGraphics();
+
+      drawNonWithrawableImage(g2d);
+      g2d.drawImage(undecoratedImage, 0, 0, null);
+
+      g2d.dispose();
+
+      images.put(undecoratedImage, unitImageWithNonWithdrawableImage);
+
+      return unitImageWithNonWithdrawableImage;
+    }
+
+    private BufferedImage loadImage(final String fileName) {
+      return resourceLoader
+          .loadBufferedImage("misc", fileName)
+          .orElseThrow(() -> new IllegalStateException("Missing image: " + fileName));
+    }
+
+    @VisibleForTesting
+    public @Nonnull BufferedImage getNonWithdrawableImage() {
+      if (nonWithdrawableImage == null) {
+        loadNonWithdrawableImage();
+      }
+
+      return nonWithdrawableImage;
+    }
+
+    private void loadNonWithdrawableImage() {
+      final int unitImageHeight = unitImageFactory.getUnitImageHeight();
+      final double nonWithdrawableImageHeight = getNonWithdrawableImageHeight(unitImageHeight);
+      nonWithdrawableImage = loadNonWithdrawableImage((int) nonWithdrawableImageHeight);
+
+      final double scaleChange =
+          (double) nonWithdrawableImage.getHeight() / nonWithdrawableImageHeight;
+      // scaleChange is the factor by which the scale factor of this.unitImageFactory
+      // must be larger than the scale factor of uiContext.getUnitImageFactory()
+      // so the non-withdrawable image has the right size in comparison to the unit icon.
+
+      final double scaleFactor = scaleChange * unitImageFactory.getScaleFactor();
+      // With this scaleFactor the unit images will have the correct height in relation
+      // to the non-withdrawable image.
+      // The relation is controlled by getNonWithdrawableImageHeight. By the time of writing
+      // this, getNonWithdrawableImageHeight makes the non-withdrawable image half as high as
+      // the unit images.
+      // At the time of writing this, there are two variants of the non-whithdrawable image
+      // being 24 pixels resp. 32 pixels high.
+      // So the unit image will be either 48 pixels or 32 pixels high.
+
+      unitImageFactoryForDecoratedImages = unitImageFactory.withScaleFactor(scaleFactor);
+
+      Postconditions.assertState(
+          nonWithdrawableImage.getHeight()
+              == getNonWithdrawableImageHeight(
+                  unitImageFactoryForDecoratedImages.getUnitImageHeight()));
+    }
+
+    /**
+     * @param nonWithdrawableImageHeight height the non-withdrawable image would have in the came -
+     *     but not on the <code>UnitChooser</code>, because on the <code>UnitChooser</code> a
+     *     specific scale is being used to make sure that the non-withdrawable image can reasonably
+     *     be displayed with its original height, i.e. unscaled.
+     * @return the non-withdrawable image best matching the unit image height given the proportion
+     *     between non-withdrawable image height and unit image height determined by <code>
+     *     getNonWithdrawableImageHeight</code>.
+     */
+    private BufferedImage loadNonWithdrawableImage(final int nonWithdrawableImageHeight) {
+      final BufferedImage imgSmall = loadImage("non-withdrawable_small.png");
+
+      if (nonWithdrawableImageHeight <= imgSmall.getHeight(null)) {
+        return imgSmall;
+      } else {
+        final BufferedImage imgBig = loadImage("non-withdrawable.png");
+
+        return nonWithdrawableImageHeight < imgBig.getHeight(null) ? imgSmall : imgBig;
+      }
+    }
+
+    private void drawNonWithrawableImage(final Graphics2D g2d) {
+      g2d.drawImage(
+          getNonWithdrawableImage(),
+          getXofNonWithdrawableImage(),
+          getYofNonWithdrawableImage(),
+          null);
+    }
+
+    private int getYofNonWithdrawableImage() {
+      return (unitImageFactoryForDecoratedImages.getUnitImageHeight()
+              - nonWithdrawableImage.getHeight())
+          / 2;
+    }
+
+    private int getXofNonWithdrawableImage() {
+      return unitImageFactoryForDecoratedImages.getUnitImageWidth() * 3 / 3;
+    }
+
+    /**
+     * Controls the height of the non-withdrawable image in relation to the height of the unit
+     * images.
+     */
+    @VisibleForTesting
+    public double getNonWithdrawableImageHeight(final int unitImageHeight) {
+      return unitImageHeight / 2.0;
+    }
+
+    int getUnitImageWidth() {
+      return getUnitImageFactoryForDecoratedImages().getUnitImageWidth();
+    }
+
+    @VisibleForTesting
+    public @Nonnull UnitImageFactory getUnitImageFactoryForDecoratedImages() {
+      if (unitImageFactoryForDecoratedImages == null) {
+        loadNonWithdrawableImage();
+      }
+
+      return unitImageFactoryForDecoratedImages;
+    }
+
+    int getUnitImageHeight() {
+      return getUnitImageFactoryForDecoratedImages().getUnitImageHeight();
+    }
+
+    int getNonWithdrawableImageWidth() {
+      return getNonWithdrawableImage().getWidth();
     }
   }
 }

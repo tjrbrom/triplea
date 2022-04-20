@@ -5,15 +5,18 @@ import static java.util.function.Predicate.not;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import games.strategy.engine.ClientFileSystemHelper;
+import games.strategy.engine.framework.I18nResourceBundle;
 import games.strategy.engine.framework.lookandfeel.LookAndFeel;
 import games.strategy.engine.framework.startup.ui.posted.game.DiceServerEditor;
 import games.strategy.engine.framework.system.HttpProxy;
 import games.strategy.engine.framework.system.SystemProperties;
+import games.strategy.triplea.UrlConstants;
 import games.strategy.triplea.ui.screen.UnitsDrawer;
 import java.awt.Frame;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
@@ -25,6 +28,7 @@ import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.triplea.http.client.maps.listing.MapsClient;
 import org.triplea.java.ThreadRunner;
 
 /**
@@ -73,15 +77,10 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new IntegerClientSetting("FASTER_ARROW_KEY_SCROLL_MULTIPLIER", 2);
   public static final ClientSetting<Boolean> spaceBarConfirmsCasualties =
       new BooleanClientSetting("SPACE_BAR_CONFIRMS_CASUALTIES", true);
-  /**
-   * When set to true, lobby URI is hardcoded to localhost (http). Takes precedence over {@code
-   * lobbyOverrideUri}
-   */
-  public static final BooleanClientSetting lobbyUseLocalhostOverride =
-      new BooleanClientSetting("USE_LOCALHOST_LOBBY_OVERRIDE");
-  /** For testing, sets lobby URI to an arbitrary value. */
-  public static final ClientSetting<URI> lobbyUriOverride =
-      new UriClientSetting("LOBBY_URI_OVERRIDE");
+
+  /** URI of the lobby, can be toggled in settings to switch to a different lobby. */
+  public static final ClientSetting<URI> lobbyUri =
+      new UriClientSetting("LOBBY_URI", URI.create(UrlConstants.PROD_LOBBY));
 
   public static final ClientSetting<char[]> lobbyLoginName =
       new ProtectedStringClientSetting("LOBBY_LOGIN_NAME");
@@ -100,8 +99,6 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new IntegerClientSetting("MAP_ZOOM_FACTOR", 10);
   public static final ClientSetting<Path> mapFolderOverride =
       new PathClientSetting("MAP_FOLDER_OVERRIDE");
-  public static final ClientSetting<Path> mapListOverride =
-      new PathClientSetting("MAP_LIST_OVERRIDE");
   public static final ClientSetting<Boolean> notifyAllUnitsMoved =
       new BooleanClientSetting("NOTIFY_ALL_UNITS_MOVED", true);
   public static final ClientSetting<HttpProxy.ProxyChoice> proxyChoice =
@@ -133,8 +130,6 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new BooleanClientSetting("USE_WEBSOCKET_NETWORK");
   public static final ClientSetting<Boolean> showSerializeFeatures =
       new BooleanClientSetting("SHOW_SERIALIZE_FEATURES");
-  public static final ClientSetting<Boolean> useMapsServerBetaFeature =
-      new BooleanClientSetting("USE_MAPS_SERVER_BETA_FEATURES");
   public static final BooleanClientSetting showChatTimeSettings =
       new BooleanClientSetting("SHOW_CHAT_TIME");
   public static final BooleanClientSetting showCommentLog =
@@ -143,8 +138,8 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
       new BooleanClientSetting("SOUND_ENABLED", true);
   public static final ClientSetting<Boolean> firstTimeThisVersion =
       new BooleanClientSetting("TRIPLEA_FIRST_TIME_THIS_VERSION_PROPERTY", true);
-  public static final ClientSetting<String> lastCheckForEngineUpdate =
-      new StringClientSetting("TRIPLEA_LAST_CHECK_FOR_ENGINE_UPDATE");
+  public static final ClientSetting<Long> lastCheckForEngineUpdate =
+      new LongClientSetting("LAST_CHECK_FOR_ENGINE_UPDATE_EPOCH_MILLI", 0);
   public static final ClientSetting<Long> lastCheckForMapUpdates =
       new LongClientSetting("TRIPLEA_LAST_CHECK_FOR_MAP_UPDATES_EPOCH_MILLI", 0);
   public static final ClientSetting<Boolean> promptToDownloadTutorialMap =
@@ -157,7 +152,7 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
   public static final ClientSetting<Path> userMapsFolderPath =
       new PathClientSetting(
           "USER_MAPS_FOLDER_PATH",
-          ClientFileSystemHelper.getUserRootFolder().resolve("downloadedMaps"));
+          ClientFileSystemHelper.getUserRootFolder().resolve(MapsClient.MAPS_FOLDER_NAME));
   public static final ClientSetting<Integer> wheelScrollAmount =
       new IntegerClientSetting("WHEEL_SCROLL_AMOUNT", 60);
   public static final ClientSetting<String> playerName =
@@ -229,6 +224,10 @@ public abstract class ClientSetting<T> implements GameSetting<T> {
    * result in an {@code IllegalStateException} being thrown by methods of this class.
    */
   public static void initialize() {
+    final Locale defaultLocale = Locale.getDefault();
+    if (!I18nResourceBundle.getMapSupportedLocales().contains(defaultLocale)) {
+      Locale.setDefault(Locale.US);
+    }
     setPreferences(Preferences.userNodeForPackage(ClientSetting.class));
   }
 

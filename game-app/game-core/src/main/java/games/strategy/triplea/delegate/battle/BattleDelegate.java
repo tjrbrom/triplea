@@ -61,6 +61,8 @@ import org.triplea.util.Tuple;
 /** Delegate to track and fight all battles. */
 @AutoSave(beforeStepStart = true, afterStepEnd = true)
 public class BattleDelegate extends BaseTripleADelegate implements IBattleDelegate {
+  private static final String MUST_COMPLETE_BATTLE_PREFIX = "Must complete ";
+
   private BattleTracker battleTracker = new BattleTracker();
   private boolean needToInitialize = true;
   private boolean needToScramble = true;
@@ -238,15 +240,19 @@ public class BattleDelegate extends BaseTripleADelegate implements IBattleDelega
     if (!allMustPrecede.isEmpty()) {
       final IBattle firstPrecede = allMustPrecede.iterator().next();
       final String name = firstPrecede.getTerritory().getName();
-      return "Must complete " + getFightingWord(firstPrecede) + " in " + name + " first";
+      return MUST_COMPLETE_BATTLE_PREFIX + getFightingWord(firstPrecede) + " in " + name + " first";
     }
     currentBattle = battle;
     battle.fight(bridge);
     return null;
   }
 
+  public static boolean isBattleDependencyErrorMessage(String message) {
+    return message.startsWith(MUST_COMPLETE_BATTLE_PREFIX);
+  }
+
   private static String getFightingWord(final IBattle battle) {
-    return battle.getBattleType().toString();
+    return battle.getBattleType().toDisplayText();
   }
 
   @Override
@@ -1516,17 +1522,16 @@ public class BattleDelegate extends BaseTripleADelegate implements IBattleDelega
             data.getMap().getTerritories(),
             Matches.territoryHasEnemyUnits(alliedPlayer, data.getRelationshipTracker())));
     final Collection<Territory> possibleTerrs =
-        new ArrayList<>(
-            data.getMap()
-                .getNeighborsByMovementCost(
-                    currentTerr,
-                    strandedAir,
-                    new BigDecimal(maxDistance),
-                    Matches.airCanFlyOver(
-                        alliedPlayer,
-                        data.getProperties(),
-                        data.getRelationshipTracker(),
-                        areNeutralsPassableByAir)));
+        data.getMap()
+            .getNeighborsByMovementCost(
+                currentTerr,
+                strandedAir,
+                new BigDecimal(maxDistance),
+                Matches.airCanFlyOver(
+                    alliedPlayer,
+                    data.getProperties(),
+                    data.getRelationshipTracker(),
+                    areNeutralsPassableByAir));
     final Iterator<Territory> possibleIter = possibleTerrs.iterator();
     while (possibleIter.hasNext()) {
       final Route route =
